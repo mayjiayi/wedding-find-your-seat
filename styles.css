@@ -1,0 +1,954 @@
+:root {
+  --bg: #faf8f5;
+  --card: #ffffff;
+  --ink: #2c2a27;
+  --muted: #6f665b;       /* darkened for readability in bright light */
+  --line: #e6e0d8;
+  --accent: #875f3f;      /* warm caramel — darkened to meet WCAG AA as text/on-white */
+  --accent-soft: #f3e9df;
+  --you: #8a6444;         /* deeper brown so white "You" text stays legible */
+  --mate: #ffffff;
+  --other: #efece7;
+  --radius: 14px;
+  --shadow: 0 6px 24px rgba(0,0,0,0.06);
+  --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+
+  /* ---- Motion system (soft & graceful) ---- */
+  --ease: cubic-bezier(.22, .61, .36, 1);  /* gentle decelerate */
+  --dur-fast: .22s;   /* small elements: hovers, chevron, dropdown */
+  --dur: .4s;         /* medium: room-map expand/collapse */
+  --dur-slow: .55s;   /* the coordinated header glide + card enter/exit */
+
+  /* room-map cell sizing (shared so the entrance door aligns to the aisle) */
+  --rt-small: 66px;   /* 8-seat table = 4 seats per side */
+  --rt-big: 99px;     /* 12-seat table = 6 per side → exactly 1.5× the 8-seater */
+  --rt-gap: 22px;     /* the aisle gap between the two columns */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .001s !important; animation-duration: .001s !important; }
+}
+
+/* ---------- Dark mode (warm, not cold grey — keeps the beige/brown character) ---------- */
+:root[data-theme="dark"] {
+  --bg: #16130e;
+  --card: #201c15;
+  --ink: #f1ebe1;
+  --muted: #a89c8a;
+  --line: #38322a;
+  --accent: #cba070;        /* brightened so it reads on dark */
+  --accent-soft: #2b2418;
+  --you: #956840;           /* darkened so white seat text meets AA (4.85:1) */
+  --mate: #262118;
+  --other: #211d16;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+/* Hardcoded spots that don't come from a variable: */
+:root[data-theme="dark"] .table-surface {
+  background: repeating-linear-gradient(45deg, #241f18, #241f18 8px, #2a251d 8px, #2a251d 16px);
+}
+:root[data-theme="dark"] .game-invite:hover { background: #352d20; }
+/* Filled accent buttons: dark text reads better than white on the lighter dark-accent. */
+:root[data-theme="dark"] .game-next,
+:root[data-theme="dark"] .game-again { color: #201c15; }
+:root[data-theme="dark"] .game-next:hover,
+:root[data-theme="dark"] .game-again:hover { background: #d9ad78; }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 28px 18px 60px;         /* padding-top is set by JS to center on load */
+  min-height: 100vh;
+  min-height: 100dvh;              /* accounts for mobile browser chrome */
+}
+.wrap.glide {
+  transition: padding-top var(--dur-slow) var(--ease);
+}
+
+header.hero {
+  text-align: center;
+  margin-bottom: 26px;
+  position: relative;   /* anchor for a hidden pigeon */
+}
+.hero .names {
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  line-height: 1.04;
+  transition: color var(--dur-fast) var(--ease);
+}
+/* When a seat card is showing, the names double as a "back to start" link. */
+.wrap.has-result .names { cursor: pointer; }
+@media (hover: hover) {
+  .wrap.has-result .names:hover { color: var(--accent); }
+}
+.hero .date {
+  font-size: 12px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hero .venue {
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--ink);
+  margin-top: 3px;
+}
+.ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--accent);
+  margin: 16px 0 12px;
+  font-size: 12px;
+}
+.ornament span {
+  display: block;
+  height: 1px;
+  width: 46px;
+  background: var(--line);
+}
+.hero .welcome {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+/* rotating fact on the landing page */
+.fact {
+  margin: 4px auto 0;
+  max-width: 320px;
+  min-height: 3.4em;             /* reserve space so rotation doesn't shift layout */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: inherit;          /* crisp body sans — far more legible than the display serif */
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+  transition: opacity var(--dur) var(--ease);
+}
+.fact.fading { opacity: 0; }
+.fact-by {
+  align-self: flex-end;          /* signature sits bottom-right of the fact block */
+  margin-top: 6px;
+  min-height: 1em;               /* keep the line even when unsigned (stable height) */
+  font-size: 12px;
+  color: var(--muted);
+  opacity: .7;
+}
+/* hide the LANDING fact once a card shows; a card's own fact lives inside
+   .result and must stay visible */
+.wrap.has-result > .landing-fact { display: none; }
+.landing-fact { margin-top: 28px; position: relative; }
+.card-fact-wrap { margin-top: 24px; }
+
+/* little indicator that facts auto-rotate */
+.fact-progress {
+  width: 46px;
+  height: 2px;
+  margin: 9px auto 0;
+  background: var(--accent-soft);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.fact-progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+@keyframes factProgress { from { width: 0; } to { width: 100%; } }
+
+
+/* ---------- Tap interactions (seats & room-map tables) ---------- */
+.seat, .rt { cursor: pointer; }
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+.pop { animation: pop .32s var(--ease); }
+
+.quip-pop {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(.94);
+  width: calc(100% - 64px);
+  max-width: 300px;
+  text-align: center;
+  background: #3d4653;                     /* blue-gray tooltip — high text contrast */
+  border-radius: var(--radius);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, .28);
+  padding: 22px 24px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 70;                             /* above the game overlay (60) so pigeon/quip messages show */
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.quip-pop.show { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+.quip-name {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .72);
+  font-weight: 600;
+}
+.quip-text {
+  display: block;
+  font-family: inherit;          /* crisp sans — more legible than the display serif */
+  font-size: 16px;
+  line-height: 1.4;
+  color: #fff;
+}
+.quip-name + .quip-text { margin-top: 8px; }
+
+/* ---------- Search ---------- */
+.search {
+  position: relative;
+  margin-bottom: 22px;
+}
+.search input {
+  width: 100%;
+  padding: 15px 44px;              /* symmetric room so centered text clears the icon */
+  font-size: 16px;                 /* 16px avoids iOS zoom-on-focus */
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--accent);            /* warm typed text to match the theme, not black */
+  outline: none;
+  text-align: center;              /* placeholder, typed text, and caret centered */
+  caret-color: var(--accent);      /* warm caret instead of harsh black */
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.search input:focus { border-color: var(--accent); }
+.search input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.search input:focus::placeholder { opacity: 0; }   /* hide on focus */
+.search-icon {
+  position: absolute;
+  top: 0; bottom: 0;
+  right: 16px;
+  margin: auto 0;
+  width: 18px;
+  height: 18px;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+  opacity: .4;                     /* translucent, understated */
+  pointer-events: none;            /* taps pass through to the input */
+}
+
+.suggestions {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  position: absolute;
+  left: 0; right: 0;
+  z-index: 20;
+  max-height: 280px;
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
+  transition: opacity var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              visibility 0s linear var(--dur-fast);
+}
+.suggestions.open {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition: opacity var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+.suggestions li {
+  padding: 11px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  transition: background var(--dur-fast) var(--ease);
+}
+.suggestions li:hover, .suggestions li.active {
+  background: var(--accent-soft);
+}
+.suggestions li .tbl {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.suggestions .empty {
+  color: var(--muted);
+  cursor: default;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.4;
+  padding: 12px 14px;
+}
+.suggestions .empty:hover { background: transparent; }
+
+/* ---------- Result card ---------- */
+.result {
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+  transition: opacity var(--dur) var(--ease),
+              transform var(--dur) var(--ease);
+}
+.result.show { opacity: 1; transform: none; }
+.result.show .card {
+  animation: cardSettle var(--dur-slow) var(--ease) forwards;
+}
+@keyframes cardSettle {
+  0%   { box-shadow: 0 8px 32px rgba(156,116,79,.22); }
+  100% { box-shadow: var(--shadow); }
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 18px;
+  position: relative;   /* anchor for a hidden pigeon */
+}
+.result .name {
+  font-size: 22px;
+  font-weight: 600;
+  text-align: center;
+}
+.result .table-badge {
+  display: block;
+  text-align: center;
+  margin: 8px auto 0;
+  font-size: 15px;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.result .table-badge b {
+  display: block;
+  font-size: 30px;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+/* ---------- Seat map ---------- */
+.seatmap {
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-hint {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--accent);
+  margin: 4px 0 0;
+}
+.scroll-hint[hidden] { display: none; }
+.seatmap-inner {
+  margin: 0 auto;
+  width: 100%;
+}
+.side {
+  display: grid;                 /* columns set inline per side (4 or 6) */
+  gap: 5px;
+  /* grid-template-columns uses minmax(0,1fr) so tracks never exceed the
+     container width — long words are forced to wrap, never overflow */
+}
+.seatmap-header {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 2px 0 10px;
+}
+
+/* ---------- Room mini-map ---------- */
+.roommap { margin-bottom: 6px; position: relative; }
+/* Shared front (Stage) & back (Entrance) wall markers — identical style */
+.room-wall {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.room-wall.top { margin-bottom: 14px; }
+.room-wall.bottom { margin-top: 16px; }
+.room-wall .wall {
+  flex: 1;
+  height: 1.5px;
+  background: var(--line);        /* light */
+  border-radius: 2px;
+}
+.room-wall .wall-label {
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink);              /* darker label */
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Entrance: double doors placed in the aisle. The invisible spacers mirror
+   the two column widths, so the door-gap lands exactly on the aisle at any
+   screen width. */
+.entrance { position: relative; margin-top: 18px; }
+/* one full-width wall line, centered on the doors */
+.entrance::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: 11px;                      /* the doors' vertical centre (half of 24px) */
+  height: 1.5px;
+  background: var(--line);
+  border-radius: 2px;
+}
+.entrance-row {
+  position: relative;
+  z-index: 1;                     /* sits above the line so the mask can hide it */
+  display: flex;
+  justify-content: center;
+}
+.e-spacer { flex: 0 0 auto; }
+.e-spacer.left { width: var(--rt-small); }
+.e-spacer.right { width: var(--rt-big); }
+.door-gap {
+  width: var(--rt-gap);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: visible;
+}
+/* mask that "cuts" a clean opening in the wall behind the door (matches the
+   room-map panel background) */
+.door-mask { background: var(--bg); padding: 0 8px; display: inline-flex; }
+.door-icon {
+  width: 34px;
+  height: 24px;
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  fill: none;
+}
+.entrance-label {
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rgrid {
+  display: flex;
+  justify-content: center;
+  gap: var(--rt-gap);
+}
+.rcol { display: flex; flex-direction: column; gap: 8px; }
+.rt {
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 34px;
+}
+.rcol.small .rt { width: var(--rt-small); }
+.rcol.big   .rt { width: var(--rt-big); }
+.rt.here {
+  background: var(--you);
+  border-color: var(--you);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(176,137,104,.4);
+}
+.youtag {
+  position: absolute;
+  top: -9px; right: -7px;
+  background: var(--ink);
+  color: var(--card);          /* flips with the theme (was #fff) */
+  font-size: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.table-surface {
+  margin: 8px 0;
+  height: 44px;
+  border-radius: 10px;
+  background: repeating-linear-gradient(45deg, #efe7dc, #efe7dc 8px, #eae0d3 8px, #eae0d3 16px);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.seat {
+  min-width: 0;             /* allow the grid track to shrink below content */
+  min-height: 54px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--mate);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 5px 2px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+.seat .who {
+  font-weight: 600;
+  width: 100%;                 /* constrain to the seat */
+  overflow-wrap: break-word;   /* last-resort break; auto-fit keeps words whole */
+}
+.seat.you {
+  background: var(--you);
+  border-color: var(--you);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(176,137,104,.4);
+}
+.seat.other {
+  background: var(--other);
+  border-style: solid;
+}
+.seat .silhouette {
+  width: 20px;
+  height: 20px;
+  fill: var(--muted);
+  opacity: .5;
+}
+
+
+/* ---------- Personal note to a party (swipeable carousel) ---------- */
+.party-note {
+  margin: 24px 0 2px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);   /* subtle divider, no heavy block */
+}
+.note-label {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.note-carousel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.note-arrow, .note-arrow-spacer { flex: 0 0 24px; width: 24px; }
+.note-arrow {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 0;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: .35;                    /* understated hint */
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.note-arrow:hover { opacity: 1; }
+.note-arrow:focus-visible { outline: none; }
+.note-viewport { overflow: hidden; flex: 1 1 auto; min-width: 0; }
+.note-slide { text-align: center; padding: 0 2px; }
+/* in a carousel, slides stack and slide in/out directionally */
+.note-carousel .note-viewport { position: relative; }
+.note-carousel .note-slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  transition: transform var(--dur) var(--ease);
+}
+.note-text {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.note-from {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ---------- Collapsible room map ---------- */
+.disclosure {
+  margin: 0 0 20px;   /* clear break before the "Your seat" block */
+}
+.disc-btn {
+  width: 100%;
+  display: block;
+  text-align: center;           /* centered link */
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 4px 8px 6px;         /* small top pad keeps it near the table number */
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--dur-fast) var(--ease);
+}
+.disc-btn:focus-visible { outline: none; }
+/* Only real pointers get the hover tint — avoids a "stuck" colour after a tap on touchscreens. */
+@media (hover: hover) {
+  .disc-btn:hover { color: var(--you); }
+}
+.disc-btn .chev {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: .45;                   /* lighter so the chunky glyph isn't heavy */
+  transition: transform var(--dur-fast) var(--ease);
+}
+.disc-btn.open .chev { transform: rotate(90deg); }   /* points down when open */
+
+/* Room panel: animate height both ways via grid-template-rows 0fr <-> 1fr */
+.disc-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur) var(--ease),
+              margin var(--dur) var(--ease);
+}
+.disc-panel.open {
+  grid-template-rows: 1fr;
+  margin: 6px 0 0;                /* gap above the map; the .disclosure margin handles below */
+}
+/* the collapsing element carries NO padding/border so it fully collapses to 0 */
+.disc-panel-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+/* the visible panel styling lives on a nested box (clipped when collapsed) */
+.room-box {
+  opacity: 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 14px;
+  transition: opacity var(--dur) var(--ease);
+}
+.disc-panel.open .room-box { opacity: 1; }
+
+.again {
+  display: block;
+  margin: 22px auto 0;
+  background: none;
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  padding: 11px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.again:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- "Who's more likely to…" game ---------- */
+/* Invite on the seat card */
+.game-invite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 16px 0 4px;
+  padding: 13px 16px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.game-invite:hover { background: #efdecb; }
+.game-invite:active { transform: scale(0.99); }
+.gi-icon { flex: 0 0 auto; display: flex; color: var(--accent); }
+.gi-icon svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.gi-icon svg circle { fill: currentColor; stroke: none; }
+.gi-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gi-kicker {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.gi-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--accent);
+}
+.gi-arrow { flex: 0 0 auto; font-size: 22px; line-height: 1; color: var(--accent); }
+
+/* Full-screen overlay */
+.game-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(44, 42, 39, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+}
+.game-overlay.show { opacity: 1; pointer-events: auto; }
+.game-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 32px 22px 26px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  transform: translateY(10px) scale(0.98);
+  transition: transform var(--dur) var(--ease);
+}
+.game-overlay.show .game-sheet { transform: none; }
+.game-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  font-size: 26px;
+  color: var(--muted);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.game-close:hover { background: var(--bg); color: var(--ink); }
+
+.game-progress {
+  margin-bottom: 16px;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.game-kicker {
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.game-prompt {
+  margin: 8px 0 22px;
+  text-align: center;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.game-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wml {
+  padding: 22px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              opacity var(--dur-fast) var(--ease);
+}
+.wml:hover { border-color: var(--accent); }
+.wml:active { transform: scale(0.98); }
+.wml:disabled { cursor: default; }
+.wml.is-answer { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.wml.is-wrong { opacity: 0.45; }
+
+.game-reveal { margin-top: 18px; text-align: center; }
+.game-caption { margin: 0 0 16px; font-size: 15px; line-height: 1.5; color: var(--muted); }
+
+.game-next, .game-again, .game-back {
+  border: none;
+  border-radius: 999px;
+  padding: 11px 24px;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.game-next, .game-again { background: var(--accent); color: #fff; }
+.game-next:hover, .game-again:hover { background: #86633f; }
+
+.game-end { text-align: center; }
+.game-score {
+  margin: 8px 0 6px;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 26px;
+  color: var(--ink);
+}
+.game-endline { margin: 0 0 22px; font-size: 15px; color: var(--muted); }
+.game-endbtns { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.game-back { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.game-back:hover { color: var(--ink); border-color: var(--accent); }
+
+body.game-open { overflow: hidden; }
+
+/* ---------- Dark-mode toggle ---------- */
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: color var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--accent); }
+.theme-toggle:active { transform: scale(0.92); }
+.theme-toggle svg { width: 19px; height: 19px; display: block; }
+.icon-moon { fill: currentColor; }
+.icon-sun { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.theme-toggle .icon-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+
+/* ---------- Hidden-pigeon hunt ---------- */
+.pigeon {
+  position: absolute;
+  z-index: 5;
+  padding: 6px;                 /* enlarges the tap target around the small icon */
+  margin: 0;
+  border: none;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0.5;                 /* subtle — you have to look */
+  transition: opacity var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.pigeon:hover { opacity: 0.95; color: var(--accent); transform: translateY(-1px); }
+.pigeon svg { width: 22px; height: auto; display: block; fill: currentColor; }
+.pigeon.flit { pointer-events: none; animation: pigeonFlit 0.7s var(--ease) forwards; }
+@keyframes pigeonFlit {
+  0%   { opacity: 0.95; transform: translateY(0) rotate(0); }
+  30%  { opacity: 1; transform: translateY(-7px) rotate(-8deg); }
+  100% { opacity: 0; transform: translateY(-42px) rotate(-16deg) scale(0.8); }
+}
+/* Placements (first-pass — nudge these freely) */
+.p-1 { bottom: 2px; right: 2px; }     /* landing: hero corner (below the names) */
+.p-3 { top: 8px; right: 8px; }        /* seat card corner */
+.p-4 { bottom: 2px; right: 4px; }     /* room map corner */
+.p-5 { bottom: 12px; left: 14px; }    /* game end-screen corner */
+.p-6 { top: 10px; left: 12px; }       /* game question 2 corner */
+
+.pigeon-count[hidden] { display: none; }   /* the class's display would otherwise override [hidden] */
+.pigeon-count {
+  position: fixed;
+  top: 60px;                 /* directly under the dark-mode toggle */
+  right: 14px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 9px;            /* icon-only ≈ a 38px circle, matching the toggle */
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+@media (hover: hover) { .pigeon-count:hover { border-color: var(--accent); } }
+.pigeon-count:active { transform: scale(0.94); }
+.pigeon-count .pigeon-glyph { line-height: 0; display: block; }
+.pigeon-count .pigeon-glyph svg { width: 18px; height: auto; display: block; fill: var(--accent); }
+/* The count is hidden until the icon is tapped, then slides out to the left. */
+.pc-num {
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  white-space: nowrap;
+  transition: max-width var(--dur) var(--ease),
+              opacity var(--dur) var(--ease),
+              margin-left var(--dur) var(--ease);
+}
+.pigeon-count.open .pc-num { max-width: 64px; opacity: 1; margin-left: 7px; }
+.pigeon-count.pop { animation: pigeonCountPop 0.4s var(--ease); }
+@keyframes pigeonCountPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
