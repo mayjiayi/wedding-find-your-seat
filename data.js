@@ -122,16 +122,16 @@ window.SEATING_DATA = {
       id: 11,
       capacity: 8,
       top: [
-        { name: "Harith Yusof", party: "Uni Hostel" },
-        { name: "Iris Chan", party: "Uni Hostel" },
-        { name: "Jason Wee", party: "Uni Hostel" },
-        { name: "Karen Lai", party: "Uni Hostel" }
+        { name: "Hui Zhen", party: "Maersk MT" },
+        { name: "Wei Jie", party: "Maersk MT" },
+        { name: "Yi Chen", party: "Maersk MT" },
+        { name: "Kok Wei", party: "Maersk MT" }
       ],
       bottom: [
-        { name: "Leon Toh", party: "Uni Hostel" },
-        { name: "Melissa Ng", party: "Uni Hostel" },
-        { name: "Nadia Omar", party: "Uni Hostel" },
-        { name: "Oscar Chng", party: "Uni Hostel" }
+        null,
+        { name: "Liying", party: "Maersk MT" },
+        { name: "Shiya", party: "Maersk MT" },
+        { name: "Zach", party: "Maersk MT" }
       ]
     },
 
@@ -228,20 +228,20 @@ window.SEATING_DATA = {
       id: 10,
       capacity: 12,
       top: [
-        { name: "Desmond Lim", party: "Groom's Side" },
-        { name: "Bernard Tan", party: "Groom's Side" },
-        { name: "Felicia Tan", party: "Groom's Side" },
-        { name: "Darren Chia", party: "Groom's Side" },
-        { name: "Joanna Koh", party: "Groom's Side" },
-        { name: "Alvin Yap", party: "Groom's Side" }
+        { name: "Kai Xin", party: "Bride's SSF" },
+        { name: "Wei En", party: "Bride's SSF" },
+        { name: "Yi Cheng", party: "Bride's SSF" },
+        { name: "Jie Wu", party: "Bride's SSF" },
+        { name: "Duan Jian", party: "Bride's SSF" },
+        { name: "Tengjie", party: "Bride's SSF" }
       ],
       bottom: [
-        { name: "Patricia Ng", party: "Groom's Side" },
-        { name: "Raymond Ong", party: "Groom's Side" },
-        { name: "Christine Lee", party: "Groom's Side" },
-        { name: "Stanley Teo", party: "Groom's Side" },
-        { name: "Pauline Chan", party: "Groom's Side" },
-        { name: "Edmund Wee", party: "Groom's Side" }
+        { name: "Xue Yi", party: "Bride's SSF" },
+        { name: "Yong Han", party: "Bride's SSF" },
+        { name: "Gin Ling", party: "Bride's SSF" },
+        { name: "Ivy", party: "Bride's SSF" },
+        { name: "Siew Hwee", party: "Bride's SSF" },
+        { name: "Sherlyn", party: "Bride's SSF" }
       ]
     },
 
@@ -250,17 +250,17 @@ window.SEATING_DATA = {
       id: 12,
       capacity: 12,
       top: [
-        { name: "Stephanie Lim", party: "Bride's Side" },
-        { name: "Jonathan Wee", party: "Bride's Side" },
-        { name: "Michelle Tan", party: "Bride's Side" },
+        { name: "Ping Teng", party: "Groom's SSF" },
+        { name: "Jillian", party: "Groom's SSF" },
+        { name: "Claudia", party: "Groom's SSF" },
         { name: "Kevin Lau", party: "Bride's Side" },
         { name: "Valerie Chua", party: "Bride's Side" },
         { name: "Nicholas Goh", party: "Bride's Side" }
       ],
       bottom: [
-        { name: "Claudia Wong", party: "Bride's Side" },
-        { name: "Marcus Yeo", party: "Bride's Side" },
-        { name: "Daryl Boon", party: "Plus Ones" },
+        { name: "Shi Jun", party: "Groom's SSF" },
+        { name: "Darren", party: "Groom's SSF" },
+        { name: "Richie", party: "Groom's SSF" },
         { name: "Jasmine Koh", party: "Plus Ones" },
         { name: "Ravi Menon", party: "Plus Ones" },
         { name: "Tara Iyer", party: "Plus Ones" }
