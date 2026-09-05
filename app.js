@@ -5,7 +5,6 @@
      The page ALWAYS falls back to data.js if a fetch is missing or fails. */
   var SHEETS = {
     guests:   "",   // Guests tab  -> published CSV url
-    messages: "",   // Messages tab -> published CSV url
     facts:    ""    // facts live only in data.js (not sheet-driven)
   };
   var FETCH_TIMEOUT = 8000;   // ms before we give up and use the fallback
@@ -54,15 +53,6 @@
       .sort(function (a, b) { return a.id - b.id; })
       .map(function (t) { return { id: t.id, capacity: t.top.length + t.bottom.length, top: t.top, bottom: t.bottom }; });
   }
-  function buildPartyNotesFromRows(rows) {
-    var notes = {};
-    rows.forEach(function (m) {
-      if (!m.party || !m.message) return;
-      if (!notes[m.party]) notes[m.party] = [];
-      notes[m.party].push({ from: m.from || "", text: m.message });
-    });
-    return notes;
-  }
   function fetchCSV(url) {
     if (!url) return Promise.resolve(null);
     var bust = (url.indexOf("?") > -1 ? "&" : "?") + "_=" + Date.now();
@@ -75,12 +65,11 @@
   }
   // Fetch the sheets and overwrite the globals; on any failure, keep data.js.
   function loadLiveData() {
-    return Promise.all([fetchCSV(SHEETS.guests), fetchCSV(SHEETS.messages), fetchCSV(SHEETS.facts)])
+    return Promise.all([fetchCSV(SHEETS.guests), fetchCSV(SHEETS.facts)])
       .then(function (res) {
-        var g = res[0], m = res[1], f = res[2];
+        var g = res[0], f = res[1];
         if (g && g.length) window.SEATING_DATA = { tables: buildSeatingFromRows(g) };
         var content = window.WEDDING_CONTENT || {};
-        if (m) content.partyNotes = buildPartyNotesFromRows(m);
         if (f && f.length) content.facts = f.map(function (r) { return r.facts || r.fact; }).filter(Boolean);
         window.WEDDING_CONTENT = content;
       })
@@ -245,11 +234,9 @@
     var col2 = data.tables.filter(function (t) { return t.capacity === 12; }).sort(byId);
     function cell(t) {
       var here = t.id === viewer.table;
-      return '<div class="rt' + (here ? ' here' : '') + '">' +
-        (here ? '<span class="youtag">You</span>' : '') + t.id + '</div>';
+      return '<div class="rt' + (here ? ' here' : '') + '">' + t.id + '</div>';
     }
     return '<div class="roommap">' +
-      pigeonHTML("p4", "p-4") +
       '<div class="room-wall top">' +
         '<span class="wall"></span>' +
         '<span class="wall-label">Screen &middot; Front of room</span>' +
@@ -281,7 +268,6 @@
 
   var swapTimer = null;    // in-flight card refresh
   var scrollTimer = null;  // pending scroll-to-card
-  var cardFactStop = null; // rotating-fact interval inside the current card
 
   // Show the swipe hint only while the current seat map overflows the screen.
   function checkOverflow() {
@@ -325,92 +311,80 @@
     whos.forEach(function (w) { w.style.fontSize = px + "px"; });
   }
 
-  function refit() { fitNames(); checkOverflow(); setNoteHeight(); }
+  function refit() { fitNames(); checkOverflow(); }
+
+  // Open (or toggle) the collapsible seat-map panel. Pass true to force it open
+  // (used when the guest taps their own table on the room map).
+  var seatScrollTimer = null;
+  function toggleSeatPanel(forceOpen) {
+    var btn = document.getElementById("seatToggle");
+    var panel = document.getElementById("seatPanel");
+    if (!btn || !panel) return;
+    var isOpen = panel.classList.contains("open");
+    if (forceOpen && isOpen) {
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    var willOpen = forceOpen ? true : !isOpen;
+    panel.classList.toggle("open", willOpen);   // height glides both ways
+    btn.classList.toggle("open", willOpen);
+    btn.setAttribute("aria-expanded", String(willOpen));
+
+    clearTimeout(seatScrollTimer);
+    if (willOpen) {
+      // Seat widths (for name auto-fit + overflow hint) can only be measured
+      // once the panel is actually visible — re-run the fit on expand.
+      requestAnimationFrame(refit);
+      // After the panel finishes expanding (--dur), scroll it fully into view.
+      seatScrollTimer = setTimeout(function () {
+        if (panel.classList.contains("open")) {
+          panel.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 420);
+    }
+  }
 
   function cardHTML(viewer) {
     var t = tablesById[viewer.table];
-    var notes = (window.WEDDING_CONTENT && window.WEDDING_CONTENT.partyNotes) || {};
-    var raw = notes[viewer.party];
-    // Normalise: accept a plain string, a single object, or a list.
-    var list = [];
-    if (typeof raw === "string") list = [{ text: raw }];
-    else if (raw && !Array.isArray(raw)) list = [raw];
-    else if (Array.isArray(raw)) list = raw;
 
-    var noteHTML = "";
-    if (list.length) {
-      var slides = list.map(function (m) {
-        return '<div class="note-slide">' +
-          '<p class="note-text">' + escapeHTML(m.text) + '</p>' +
-          (m.from ? '<span class="note-from">' + escapeHTML(m.from) + '</span>' : '') +
-        '</div>';
-      }).join("");
-      var multi = list.length > 1;
-
-      // Dynamic title based on who wrote the message(s).
-      var content = window.WEDDING_CONTENT || {};
-      var bride = content.bride || "";
-      var groom = content.groom || "";
-      var froms = list.map(function (m) { return (m.from || "").trim(); });
-      var hasBride = bride && froms.some(function (f) { return f.indexOf(bride) > -1; });
-      var hasGroom = groom && froms.some(function (f) { return f.indexOf(groom) > -1; });
-      var role = (hasBride && hasGroom) ? "the couple"
-               : hasBride ? "the bride"
-               : hasGroom ? "the groom"
-               : "the couple";
-
-      var viewport = '<div class="note-viewport">' + slides + '</div>';
-      var carousel = multi
-        ? '<div class="note-carousel">' +
-            '<span class="note-arrow-spacer" aria-hidden="true"></span>' +
-            viewport +
-            '<button type="button" class="note-arrow" data-dir="1" aria-label="Next message">&#8250;</button>' +
-          '</div>'
-        : viewport;
-
-      noteHTML =
-        '<div class="party-note">' +
-          '<div class="note-label">Message from ' + role + '</div>' +
-          carousel +
-        '</div>';
-    } else {
-      // No message for this party → show a rotating fact in the same spot.
-      noteHTML =
-        '<div class="card-fact-wrap">' +
-          '<div class="note-label">Did you know?</div>' +
-          '<p class="fact" id="cardFact"></p>' +
-          '<div class="fact-progress"><i id="cardFactBar"></i></div>' +
-        '</div>';
-    }
+    // Does anyone from another party share this table? (Drives the legend that
+    // explains the anonymous silhouettes; skipped when the whole table is yours.)
+    var hasOthers = t.top.concat(t.bottom).some(function (s) {
+      return s && s.party !== viewer.party;
+    });
+    var legendHTML = hasOthers
+      ? '<p class="seat-legend">' + PERSON_SVG + '<span>Other guests at your table</span></p>'
+      : '';
 
     return '<div class="card">' +
-        pigeonHTML("p3", "p-3") +
         '<div class="name">' + escapeHTML(viewer.name) + '</div>' +
         '<span class="table-badge">You\'re at<b>Table ' + viewer.table + '</b></span>' +
 
-        '<div class="disclosure">' +
-          '<button class="disc-btn" id="roomToggle" aria-expanded="false">' +
-            '<span class="disc-label">Huh? Where is Table ' + viewer.table + '?</span>' +
-            '<span class="chev" aria-hidden="true">&#9654;</span>' +
-          '</button>' +
-          '<div class="disc-panel" id="roomPanel">' +
-            '<div class="disc-panel-inner">' +
-              '<div class="room-box">' +
-                roomMapHTML(viewer) +
-              '</div>' +
-            '</div>' +
+        // Room map — always visible: the primary "where's my table" answer.
+        '<div class="roomsection">' +
+          '<div class="room-box">' +
+            roomMapHTML(viewer) +
           '</div>' +
         '</div>' +
 
-        '<div class="seatmap-header">Your seat</div>' +
-        '<div class="seatmap"><div class="seatmap-inner">' +
-          sideHTML(t.top, viewer) +
-          '<div class="table-surface">Table ' + viewer.table + '</div>' +
-          sideHTML(t.bottom, viewer) +
-        '</div></div>' +
-        '<p class="scroll-hint" id="scrollHint" hidden>Swipe to see the whole table &rarr;</p>' +
-
-        noteHTML +
+        // Seat map — collapsible detail: the secondary "where exactly do I sit".
+        '<div class="disclosure">' +
+          '<button class="disc-btn" id="seatToggle" aria-expanded="false">' +
+            '<span class="disc-label">See your exact seat</span>' +
+            '<span class="chev" aria-hidden="true">&#8250;</span>' +
+          '</button>' +
+          '<div class="disc-panel" id="seatPanel">' +
+            '<div class="disc-panel-inner">' +
+              '<div class="seatmap"><div class="seatmap-inner">' +
+                sideHTML(t.top, viewer) +
+                '<div class="table-surface">Table ' + viewer.table + '</div>' +
+                sideHTML(t.bottom, viewer) +
+              '</div></div>' +
+              '<p class="scroll-hint" id="scrollHint" hidden>Swipe to see the whole table &rarr;</p>' +
+              legendHTML +
+            '</div>' +
+          '</div>' +
+        '</div>' +
 
         (whoGameData().length
           ? '<button type="button" class="game-invite" id="gameInvite">' +
@@ -431,8 +405,6 @@
               '<span class="gi-arrow" aria-hidden="true">&#8250;</span>' +
             '</button>'
           : '') +
-
-        '<button class="again" id="againBtn">Search another name</button>' +
       '</div>';
   }
 
@@ -440,93 +412,32 @@
     resultEl.innerHTML = cardHTML(viewer);
     requestAnimationFrame(refit);
 
-    var roomToggle = document.getElementById("roomToggle");
-    var roomPanel = document.getElementById("roomPanel");
-    var roomScrollTimer;
-    roomToggle.addEventListener("click", function () {
-      var willOpen = !roomPanel.classList.contains("open");
-      roomPanel.classList.toggle("open", willOpen);   // height glides both ways
-      roomToggle.classList.toggle("open", willOpen);
-      roomToggle.setAttribute("aria-expanded", String(willOpen));
-
-      clearTimeout(roomScrollTimer);
-      if (willOpen) {
-        // After the panel finishes expanding (--dur), scroll it fully into view.
-        roomScrollTimer = setTimeout(function () {
-          if (roomPanel.classList.contains("open")) {
-            roomPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }
-        }, 420);
-      }
+    document.getElementById("seatToggle").addEventListener("click", function () {
+      toggleSeatPanel();
     });
-
-    document.getElementById("againBtn").addEventListener("click", exitToLanding);
 
     var gameInvite = document.getElementById("gameInvite");
     if (gameInvite) gameInvite.addEventListener("click", openWhoGame);
 
-    wireTapEasterEggs();
-    wireNoteCarousel();
-
-    // If this card shows a rotating fact (no party message), start it.
-    clearInterval(cardFactStop);
-    var cf = document.getElementById("cardFact");
-    cardFactStop = cf ? startFacts(cf, document.getElementById("cardFactBar")) : null;
-
-    hidePigeonsAlreadyFound();   // don't show card/room pigeons already caught
+    wireRoomMapNav();
   }
 
-  // Playful reactions when a guest taps a seat or a room-map table.
-  var quipTimer = null;
-  function randomFrom(arr) {
-    return (arr && arr.length) ? arr[Math.floor(Math.random() * arr.length)] : "";
-  }
-  // Show a centered card. `name` optional (omitted for tables / anonymous).
-  function showQuip(name, text) {
-    var el = document.getElementById("quip");
-    if (!el || !text) return;
-    el.innerHTML =
-      (name ? '<span class="quip-name">' + escapeHTML(name) + '</span>' : '') +
-      '<span class="quip-text">' + escapeHTML(text) + '</span>';
-    el.classList.add("show");
-    clearTimeout(quipTimer);
-    quipTimer = setTimeout(function () { el.classList.remove("show"); }, 2500);
-  }
   function popEl(el) {
     el.classList.remove("pop");
     void el.offsetWidth;                 // restart the animation
     el.classList.add("pop");
   }
-  function wireTapEasterEggs() {
-    var C = window.WEDDING_CONTENT || {};
-    var seatmapEl = resultEl.querySelector(".seatmap");
-    if (seatmapEl) {
-      seatmapEl.addEventListener("click", function (e) {
-        var seat = e.target.closest(".seat");
-        if (!seat) return;
-        popEl(seat);
-        if (seat.classList.contains("you")) {
-          showQuip("You", seat.dataset.quip || "That's you — looking wonderful today!");
-        } else if (seat.classList.contains("mate")) {
-          showQuip(seat.dataset.name || "", seat.dataset.quip || randomFrom(C.defaultQuips));
-        } else {
-          showQuip("", randomFrom(C.mysteryLines) || "A guest you'll meet tonight.");
-        }
-      });
-    }
+  // Tapping the guest's own (highlighted) table on the room map opens the
+  // collapsible seat-map detail — a natural "that's my table, show me my seat".
+  function wireRoomMapNav() {
     var rgrid = resultEl.querySelector(".rgrid");
-    if (rgrid) {
-      rgrid.addEventListener("click", function (e) {
-        var rt = e.target.closest(".rt");
-        if (!rt) return;
-        popEl(rt);
-        if (rt.classList.contains("here")) { showQuip("", "That's your table!"); }
-        else {
-          var n = (rt.textContent || "").replace(/\D+/g, "");
-          showQuip("", "Table " + n + " — no peeking!");
-        }
-      });
-    }
+    if (!rgrid) return;
+    rgrid.addEventListener("click", function (e) {
+      var rt = e.target.closest(".rt.here");
+      if (!rt) return;
+      popEl(rt);
+      toggleSeatPanel(true);
+    });
   }
 
   // ---- "Who's more likely to…" game (launched from the seat card) ----
@@ -598,11 +509,9 @@
             '<p class="game-caption"></p>' +
             '<button type="button" class="game-next">' + (lastOne ? "See results" : "Next") + ' &#8250;</button>' +
           '</div>' +
-        '</div>' +
-        (idx === 1 ? pigeonHTML("p6", "p-6") : "")   // a pigeon on the 2nd question
+        '</div>'
       );
       wireClose();
-      hidePigeonsAlreadyFound();
 
       var opts = gameEl.querySelectorAll(".wml");
       var reveal = gameEl.querySelector(".game-reveal");
@@ -652,11 +561,9 @@
             '<button type="button" class="game-again">Play again</button>' +
             '<button type="button" class="game-back">Back to my seat</button>' +
           '</div>' +
-        '</div>' +
-        pigeonHTML("p5", "p-5")
+        '</div>'
       );
       wireClose();
-      hidePigeonsAlreadyFound();
       gameEl.querySelector(".game-again").addEventListener("click", function () {
         queue = rotate(all); idx = 0; score = 0; renderQuestion();
       });
@@ -666,54 +573,6 @@
     document.body.classList.add("game-open");
     renderQuestion();
     requestAnimationFrame(function () { gameEl.classList.add("show"); });
-  }
-
-  // Arrow navigation for the party-note carousel (2+ messages only).
-  // Slides always enter from the side matching the arrow, so "next" (›) reads
-  // as forward even when looping from the last message back to the first.
-  function wireNoteCarousel() {
-    var pn = resultEl.querySelector(".party-note");
-    if (!pn) return;
-    var slides = pn.querySelectorAll(".note-carousel .note-slide");
-    var arrows = pn.querySelectorAll(".note-arrow");
-    if (slides.length < 2) return;
-
-    var idx = 0;
-    slides.forEach(function (s, i) {
-      s.style.transform = "translateX(" + (i === 0 ? 0 : 100) + "%)";
-    });
-
-    function go(dir) {
-      var n = slides.length;
-      var newIdx = ((idx + dir) % n + n) % n;
-      if (newIdx === idx) return;
-      var cur = slides[idx], nxt = slides[newIdx];
-      nxt.style.transition = "none";
-      nxt.style.transform = "translateX(" + (dir > 0 ? 100 : -100) + "%)";
-      void nxt.offsetWidth;                    // commit the start position
-      nxt.style.transition = "";               // back to the CSS transition
-      requestAnimationFrame(function () {
-        cur.style.transform = "translateX(" + (dir > 0 ? -100 : 100) + "%)";
-        nxt.style.transform = "translateX(0)";
-      });
-      idx = newIdx;
-    }
-    arrows.forEach(function (a) {
-      a.addEventListener("click", function () {
-        go(parseInt(a.getAttribute("data-dir"), 10));
-      });
-    });
-  }
-
-  // Give the carousel viewport a fixed height (tallest message) since its
-  // slides are absolutely positioned. Recomputed on resize via refit().
-  function setNoteHeight() {
-    var vp = resultEl.querySelector(".note-carousel .note-viewport");
-    if (!vp) return;
-    var slides = vp.querySelectorAll(".note-slide");
-    var maxH = 0;
-    slides.forEach(function (s) { if (s.offsetHeight > maxH) maxH = s.offsetHeight; });
-    if (maxH) vp.style.height = maxH + "px";
   }
 
   // Fade the card in, then scroll it to the top so it dominates the screen.
@@ -746,7 +605,6 @@
 
   function exitToLanding() {
     clearTimeout(swapTimer);
-    clearInterval(cardFactStop);
     input.value = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
     resultEl.classList.remove("show");        // card eases out (--dur)
@@ -762,83 +620,6 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c];
     });
-  }
-
-  // ---- Hidden-pigeon hunt (a nod to the "we can sex a pigeon" fact) ----
-  var PIGEON_TOTAL = 5;
-  // Several pigeon designs for variety. Each shape uses currentColor (via CSS)
-  // so it themes in light/dark. Add more entries here to get more variety.
-  var PIGEON_SVGS = [
-    // 0 — pigeon (SVG Repo #173788) — also used for the counter glyph
-    '<svg viewBox="0 0 334.966 334.966" aria-hidden="true"><path d="M287.112,280.184c-5.763-1.863-11.207-3.623-15.804-5.347c-6.204-2.326-7.655-3.394-7.976-3.816c0.337-0.31,1.403-0.783,2.133-1.106c2.534-1.124,6.004-2.663,6.199-6.164c0.234-4.221-3.748-12.339-40.871-34.007c-28.763-16.789-37.888-32.28-48.454-50.218c-5.918-10.047-12.038-20.437-22.159-32.278c-2.814-3.292-6.402-7-10.556-11.293c-17.204-17.78-43.202-44.65-45.027-76.8C102.29,18.353,72.418,0,51.944,0l-0.505,0.003C38.221,0.19,29.167,8.839,23.899,16.064c-2.447,3.365-6.952,7.625-9.947,9.925c-3.649,2.793-6.52,6.137-8.529,9.935c-0.928,1.734-1.002,3.419-0.208,4.745c1.006,1.679,3.227,2.532,5.987,2.208c2.164-0.25,4.145-0.372,6.056-0.372c8.99,0,15.497,2.658,19.338,7.9c5.474,7.469,5.451,20.112-0.067,37.575c-15.688,49.652-20.239,86.361-13.914,112.227c8.139,33.301,19.381,53.593,58.244,72.092c3.723,1.772,7.853,3.315,12.309,4.698c-2.813,8.571-5.917,17.043-8.701,22.407c-0.209,0.404-0.333,0.88-0.454,1.34c-0.051,0.193-0.123,0.468-0.194,0.679c-0.609-0.347-1.778-1.235-2.832-2.036c-1.729-1.314-3.881-2.949-6.163-4.328c-4.237-2.56-7.525-3.752-10.346-3.752c-2.164,0-3.752,0.702-5.021,1.389c-0.316,0.171-1.058,0.573-0.872,1.39c0.187,0.821,0.946,0.859,1.75,0.898c2.061,0.1,7.414,0.363,12.548,5.818c-2.316-0.067-7.405-1.078-15.532-3.091c-0.946-0.234-1.882-0.345-2.783-0.345c-6.728,0-10.058,6.408-11.312,8.815c-0.164,0.315-0.28,0.583-0.349,0.682l-0.452,0.627l0.549,1.281h0.636c0.306,0,0.484-0.227,0.959-0.5c7.506-4.305,16.275-5.03,24.988-1.808c2.541,0.939,3.99,2.123,4.786,3.05c-0.237,0.181-0.461,0.372-0.681,0.566c-2.252-0.094-4.046-0.139-5.532-0.139c-2.385,0-3.682,0.114-5.184,0.247c-1.446,0.127-3.085,0.272-6.121,0.336c-2.174,0.046-4.222,0.381-5.922,0.97c-4.858,1.682-7.161,4.85-7.268,4.999l-3.077,4.486l-0.09,0.16c-0.36,0.814-0.392,1.459-0.094,1.917c0.378,0.581,1.126,0.721,1.97,0.187c6.496-4.108,11.776-6.024,16.618-6.024c3.119,0,5.727,0.795,8.249,1.567c2.442,0.748,4.968,1.514,7.854,1.514c1.122,0,2.217-0.125,3.35-0.355c1.598-0.326,3.095-0.705,4.543-1.047c3.673-0.869,6.846-1.669,10.31-1.669c1.641,0,3.297,0.182,4.997,0.547c1.362,0.855,2.148,1.729,2.552,2.353c-2.808-0.129-4.954-0.189-6.687-0.189c-2.385,0-3.682,0.114-5.184,0.247c-1.446,0.127-3.085,0.272-6.121,0.336c-2.174,0.046-4.222,0.381-5.922,0.97c-4.858,1.682-7.161,4.85-7.268,4.999l-3.077,4.486l-0.09,0.16c-0.36,0.814-0.392,1.459-0.094,1.917c0.378,0.581,1.126,0.721,1.97,0.187c6.496-4.108,11.776-6.024,16.618-6.024c3.119,0,5.727,0.795,8.249,1.567c2.442,0.748,4.968,1.514,7.854,1.514c1.122,0,2.217-0.125,3.35-0.355c1.598-0.326,3.095-0.705,4.543-1.047c3.673-0.869,6.846-1.669,10.31-1.669c5.895,0,11.964,2.251,19.679,7.521l0.344,0.019h0.309l0.639,0.192l0.274-0.363c0.32-0.657,0.32-0.657-2.122-3.779c-2.821-3.607-10.316-13.188-9.835-15.774c1.309-7.024,4.622-18.541,7.997-29.46c6.568,0.91,13.393,1.785,20.45,2.685c16.189,2.065,34.539,4.407,53.473,7.71c8.786,1.534,18.044,3.249,26.997,4.907c28.875,5.35,58.734,10.881,76.092,10.881c7.998,0,12.991-1.161,15.262-3.549c1.027-1.08,1.509-2.398,1.433-3.918C329.772,293.974,307.108,286.647,287.112,280.184z M110.015,310.745c-0.051,0.193-0.123,0.468-0.194,0.679c-0.609-0.347-1.778-1.235-2.832-2.036c-1.232-0.936-2.685-2.034-4.24-3.088c-0.159-0.506-0.223-0.932-0.164-1.251c1.094-5.869,3.587-14.877,6.346-24.05c3.677,0.766,7.517,1.471,11.483,2.139c-3.12,9.816-6.744,20.096-9.946,26.267C110.259,309.809,110.135,310.285,110.015,310.745z"></path></svg>',
-    // 1 — pigeon (SVG Repo #131435, recoloured to currentColor)
-    '<svg viewBox="0 0 567.803 567.803" aria-hidden="true"><path d="M429.216,140.669c-3.55-18.124-3.24-37.071-6.238-55.337c-4.076-24.831-12.575-50.074-30.698-67.528c-22.48-21.652-56.039-23.705-81.065-5.336c-2.306,1.689-2.962,5.7-4.219,8.715c-0.396,0.951-0.723,1.934-1.053,2.991c-0.522,1.673-1.392,3.407-1.95,3.859c-0.339,0.273-0.673,0.547-1.012,0.82c-0.196,0.159-0.375,0.334-0.547,0.522c-0.277,0.306-2.057,1.485-4.035,2.566c-6.883,3.762-13.839,7.267-19.841,11.983c-3.794,2.982-6.324,7.577-9.033,11.942c-1.191,1.914-1.889,3.737-1.461,4.141c0.429,0.404,2.579,0.428,4.807,0.073c1.636-0.261,3.239-0.587,4.696-1.249c26.88-12.179,56.08,5.9,57.631,35.362c0.93,17.658-6.912,34.557-15.855,49.809c-6.512,11.102-15.083,29.454-25.581,37.189c-9.03,6.654-18.838,5.965-28.659,12.007c-22.26,13.693-38.075,42.938-51.147,64.603c-12.791,21.195-24.121,43.248-37.43,64.113c-12.448,19.519-29.343,35.186-42.856,53.048c-1.358,1.795-1.628,4.892-0.922,7.03c0.6,1.807,1.252,3.985,1.705,5.866c0.531,2.191,2.464,4.183,4.333,5.439c11.379,7.658-26.805,37.009-38.784,46.883c-1.738,1.433-1.269,2.938,0.971,3.17c30.413,3.146,64.085-6.356,90.927-17.14c2.774-1.114,5.353-2.782,7.891-4.398c4.569-2.909,8.988-6.055,13.558-8.964c4.872-3.101,47.524-3.386,42.82,5.944c-11.795,23.391,0.702,47.586,4.614,71.127c1.595,9.584,0.008,17.263-1.697,24.803c-0.498,2.199-2.701,4.247-4.917,4.655c-8.213,1.514-15.646,3.847-9.869,6.907c4.5,2.383,7.678,5.312,9.857,7.923c1.444,1.73,2.554,5.121,2.93,7.345c1.387,8.286,4.484,16.813,7.274,24.541c0.767,2.117,2.358,2.297,3.517,0.363c9.731-16.219,12.252-25.59,31.996-21.167c13.003,2.909,26.247,6.858,39.271,9.62c2.207,0.47,2.513-0.257,0.689-1.583c-6.516-4.741-12.999-9.563-19.837-13.818c-1.914-1.191-1.755-1.506,0.473-1.188c11.738,1.677,14.754-8.136,21.608-12.146c1.946-1.139,1.999-1.098-0.217-0.686c-9.837,1.82-19.796,3.346-29.727,2.379c-29.319-2.852-38.059-26.761-33.252-54.301c2.505-14.361,15.537-61.849,30.409-67.557c7.368-2.827,15.806,2.668,19.074,9.85c3.271,7.177,2.758,15.43,2.248,23.301c-0.511,7.87-0.878,16.16,2.627,23.228c3.146,6.34,8.98,10.824,13.75,16.055c4.77,5.227,8.727,12.333,6.781,19.135c-1.747,6.116-7.94,10.114-14.207,11.188c-4.933,0.845-9.951,0.216-14.9-0.723c-2.215-0.42-3.039,0.8-1.31,2.244c12.077,10.086,41.294,0.547,35.146,22.347c-1.273,4.504-2.297,9.082-3.387,13.774c-0.51,2.194,0.734,3.215,2.697,2.108c8.237-4.626,13.476-10.881,12.195-21.444c-0.155-1.285,47.564,12.971,50.637,13.962c3.7,1.195,7.601,1.791,11.922,2.546c2.219,0.388,3.488-1.008,2.709-3.121c-2.236-6.083-5.022-10.212-12-11.452c-6.658-1.188-13.284-3.183-19.693-5.455c-2.126-0.751-2.012-1.433,0.24-1.318c12.016,0.596,37.038,3.391,37.087-8.992c0.009-2.252-2.509-3.7-4.716-3.252c-4.247,0.869-8.52,1.86-12.771,1.767c-15.985-0.358-34.138,2.469-46.206-8.115c-11.836-10.375-14.521-33.215-13.537-47.735c5.002-73.995,79.294-114.281,100.678-183.286c10.33-33.346,1.938-63.252-15.435-92.367C440.158,165.557,432.512,157.499,429.216,140.669z"></path></svg>'
-  ];
-  var PIGEON_SVG = PIGEON_SVGS[0];   // the counter glyph uses the first design (#173788)
-  function pigeonSvgFor(id) {
-    var n = parseInt(String(id).replace(/\D/g, ""), 10) || 0;
-    return PIGEON_SVGS[n % PIGEON_SVGS.length];   // deterministic per id, so it won't change on re-render
-  }
-  function pigeonHTML(id, cls) {
-    return '<button type="button" class="pigeon ' + cls + '" data-pigeon="' + id +
-      '" aria-label="A hidden pigeon — tap to catch it">' + pigeonSvgFor(id) + '</button>';
-  }
-  // In-memory only (not persisted) so a page refresh resets the hunt. The count
-  // still carries across views within a visit, since navigating doesn't reload.
-  var pigeonState = [];
-  function pigeonsFound() { return pigeonState; }
-  function savePigeons(a) { pigeonState = a; }
-  function updatePigeonCount(pop) {
-    var el = document.getElementById("pigeonCount");
-    var txt = document.getElementById("pigeonCountText");
-    if (!el || !txt) return;
-    txt.textContent = pigeonsFound().length + " / " + PIGEON_TOTAL;
-    el.hidden = false;
-    if (pop) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
-  }
-  function hidePigeonsAlreadyFound() {
-    var found = pigeonsFound();
-    var list = document.querySelectorAll(".pigeon");
-    for (var i = 0; i < list.length; i++) {
-      if (found.indexOf(list[i].getAttribute("data-pigeon")) > -1) list[i].remove();
-    }
-  }
-  function catchPigeon(el) {
-    var id = el.getAttribute("data-pigeon");
-    var found = pigeonsFound();
-    if (found.indexOf(id) > -1) { el.remove(); return; }
-    found.push(id);
-    savePigeons(found);
-    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { el.remove(); }
-    else { el.classList.add("flit"); setTimeout(function () { el.remove(); }, 700); }
-    updatePigeonCount(true);
-    var n = found.length;
-    showQuip("", n >= PIGEON_TOTAL
-      ? "That's all " + PIGEON_TOTAL + " pigeons! Now ask us to guess their genders."
-      : "You found a pigeon! " + n + " / " + PIGEON_TOTAL + " — keep looking.");
-  }
-  function initPigeons() {
-    if (!document.getElementById("pigeonCount")) {
-      var c = document.createElement("button");
-      c.type = "button";
-      c.className = "pigeon-count";
-      c.id = "pigeonCount";
-      c.hidden = true;
-      c.setAttribute("aria-label", "Pigeons found — tap to see your count");
-      c.innerHTML = '<span class="pigeon-glyph" aria-hidden="true">' + PIGEON_SVG +
-        '</span><span class="pc-num" id="pigeonCountText"></span>';
-      c.addEventListener("click", function () {
-        document.getElementById("pigeonCountText").textContent =
-          pigeonsFound().length + " / " + PIGEON_TOTAL;
-        c.classList.toggle("open");   // reveal / hide the count on tap
-      });
-      document.body.appendChild(c);
-    }
-    var hero = document.querySelector(".hero");
-    if (hero && !hero.querySelector(".pigeon")) hero.insertAdjacentHTML("beforeend", pigeonHTML("p1", "p-1"));
-    hidePigeonsAlreadyFound();
-    if (pigeonsFound().length > 0) updatePigeonCount(false);
   }
 
   // --- Events ---
@@ -879,16 +660,7 @@
     }
   });
   document.addEventListener("click", function (e) {
-    var pigeon = e.target.closest(".pigeon");
-    if (pigeon) { e.preventDefault(); catchPigeon(pigeon); return; }
     if (!e.target.closest(".search")) hideSuggestions();
-    // Tap anywhere (except a seat/table, which open their own quip) to dismiss.
-    var q = document.getElementById("quip");
-    if (q && q.classList.contains("show") &&
-        !e.target.closest(".seat") && !e.target.closest(".rt")) {
-      q.classList.remove("show");
-      clearTimeout(quipTimer);
-    }
   });
 
   // --- Easter eggs ---
@@ -995,9 +767,6 @@
 
   // Landing-page fact.
   startFacts(document.getElementById("fact"), document.getElementById("factBar"));
-
-  // Hidden-pigeon hunt: drop the two landing pigeons + restore saved progress.
-  initPigeons();
 
   // Center the landing view first, THEN enable the glide transition, so the
   // initial placement doesn't animate — only later movements glide.

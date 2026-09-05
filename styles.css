@@ -3,12 +3,13 @@
   --card: #ffffff;
   --ink: #2c2a27;
   --muted: #6f665b;       /* darkened for readability in bright light */
-  --line: #e6e0d8;
+  --line: #d9d1c5;        /* borders — darkened for a clearer edge in bright light */
   --accent: #875f3f;      /* warm caramel — darkened to meet WCAG AA as text/on-white */
   --accent-soft: #f3e9df;
   --you: #8a6444;         /* deeper brown so white "You" text stays legible */
   --mate: #ffffff;
   --other: #efece7;
+  --rt-cell: #efe9e1;     /* non-you room-map tables — a quiet fill, not a button */
   --radius: 14px;
   --shadow: 0 6px 24px rgba(0,0,0,0.06);
   --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
@@ -20,8 +21,10 @@
   --dur-slow: .55s;   /* the coordinated header glide + card enter/exit */
 
   /* room-map cell sizing (shared so the entrance door aligns to the aisle) */
-  --rt-small: 66px;   /* 8-seat table = 4 seats per side */
-  --rt-big: 99px;     /* 12-seat table = 6 per side → exactly 1.5× the 8-seater */
+  /* Both columns share one width — the rectangle size is not meant to convey
+     seat count; equal cells read as a clean, deliberate grid. */
+  --rt-small: 84px;
+  --rt-big: var(--rt-small);
   --rt-gap: 22px;     /* the aisle gap between the two columns */
 }
 
@@ -34,13 +37,14 @@
   --bg: #16130e;
   --card: #201c15;
   --ink: #f1ebe1;
-  --muted: #a89c8a;
-  --line: #38322a;
+  --muted: #b3a794;         /* lifted for readability at low screen brightness */
+  --line: #5f5648;          /* borders lifted well clear of the card so edges read in a bright tent */
   --accent: #cba070;        /* brightened so it reads on dark */
   --accent-soft: #2b2418;
   --you: #956840;           /* darkened so white seat text meets AA (4.85:1) */
   --mate: #262118;
   --other: #211d16;
+  --rt-cell: #2c2519;       /* non-you room-map tables — a subtle lift off the card */
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
 }
 /* Hardcoded spots that don't come from a variable: */
@@ -79,7 +83,7 @@ body {
 header.hero {
   text-align: center;
   margin-bottom: 26px;
-  position: relative;   /* anchor for a hidden pigeon */
+  position: relative;
 }
 .hero .names {
   font-family: var(--serif);
@@ -152,11 +156,9 @@ header.hero {
   color: var(--muted);
   opacity: .7;
 }
-/* hide the LANDING fact once a card shows; a card's own fact lives inside
-   .result and must stay visible */
+/* "Did you know?" fact — shown only on the landing view; hidden once a card shows. */
 .wrap.has-result > .landing-fact { display: none; }
 .landing-fact { margin-top: 28px; position: relative; }
-.card-fact-wrap { margin-top: 24px; }
 
 /* little indicator that facts auto-rotate */
 .fact-progress {
@@ -176,49 +178,15 @@ header.hero {
 @keyframes factProgress { from { width: 0; } to { width: 100%; } }
 
 
-/* ---------- Tap interactions (seats & room-map tables) ---------- */
-.seat, .rt { cursor: pointer; }
+/* ---------- Tap interactions ---------- */
+/* Only the guest's own table on the room map is interactive (opens the seat map). */
+.rt.here { cursor: pointer; }
 @keyframes pop {
   0%   { transform: scale(1); }
   40%  { transform: scale(1.07); }
   100% { transform: scale(1); }
 }
 .pop { animation: pop .32s var(--ease); }
-
-.quip-pop {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(.94);
-  width: calc(100% - 64px);
-  max-width: 300px;
-  text-align: center;
-  background: #3d4653;                     /* blue-gray tooltip — high text contrast */
-  border-radius: var(--radius);
-  box-shadow: 0 14px 44px rgba(0, 0, 0, .28);
-  padding: 22px 24px;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 70;                             /* above the game overlay (60) so pigeon/quip messages show */
-  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
-}
-.quip-pop.show { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
-.quip-name {
-  display: block;
-  font-size: 11px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .72);
-  font-weight: 600;
-}
-.quip-text {
-  display: block;
-  font-family: inherit;          /* crisp sans — more legible than the display serif */
-  font-size: 16px;
-  line-height: 1.4;
-  color: #fff;
-}
-.quip-name + .quip-text { margin-top: 8px; }
 
 /* ---------- Search ---------- */
 .search {
@@ -337,7 +305,7 @@ header.hero {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 22px 18px;
-  position: relative;   /* anchor for a hidden pigeon */
+  position: relative;
 }
 .result .name {
   font-size: 22px;
@@ -363,7 +331,10 @@ header.hero {
 /* ---------- Seat map ---------- */
 .seatmap {
   overflow-x: auto;
-  padding: 4px 0 8px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   -webkit-overflow-scrolling: touch;
 }
 .scroll-hint {
@@ -448,7 +419,7 @@ header.hero {
 }
 /* mask that "cuts" a clean opening in the wall behind the door (matches the
    room-map panel background) */
-.door-mask { background: var(--bg); padding: 0 8px; display: inline-flex; }
+.door-mask { background: var(--card); padding: 0 8px; display: inline-flex; }
 .door-icon {
   width: 34px;
   height: 24px;
@@ -472,12 +443,13 @@ header.hero {
   gap: var(--rt-gap);
 }
 .rcol { display: flex; flex-direction: column; gap: 8px; }
+/* Non-you tables: quiet, flat markers — deliberately NOT styled like buttons,
+   since only your own table is interactive. */
 .rt {
-  border: 1.5px solid var(--line);
   border-radius: 8px;
-  background: var(--card);
-  color: var(--muted);
-  font-weight: 600;
+  background: var(--rt-cell);
+  color: var(--ink);
+  font-weight: 500;
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -487,22 +459,12 @@ header.hero {
 }
 .rcol.small .rt { width: var(--rt-small); }
 .rcol.big   .rt { width: var(--rt-big); }
+/* Your table: the one solid, tappable object on the map. */
 .rt.here {
   background: var(--you);
-  border-color: var(--you);
   color: #fff;
+  font-weight: 600;
   box-shadow: 0 4px 14px rgba(176,137,104,.4);
-}
-.youtag {
-  position: absolute;
-  top: -9px; right: -7px;
-  background: var(--ink);
-  color: var(--card);          /* flips with the theme (was #fff) */
-  font-size: 8px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
 }
 
 .table-surface {
@@ -555,14 +517,25 @@ header.hero {
   fill: var(--muted);
   opacity: .5;
 }
-
-
-/* ---------- Personal note to a party (swipeable carousel) ---------- */
-.party-note {
-  margin: 24px 0 2px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);   /* subtle divider, no heavy block */
+/* Minimal legend under the seat map: explains the silhouettes when another
+   party shares the table (hidden entirely when the whole table is yours). */
+.seat-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
 }
+.seat-legend .silhouette {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+
+/* ---------- "Did you know?" label (landing page + card fact) ---------- */
 .note-label {
   text-align: center;
   font-size: 10px;
@@ -571,70 +544,34 @@ header.hero {
   color: var(--accent);
   margin-bottom: 10px;
 }
-.note-carousel {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.note-arrow, .note-arrow-spacer { flex: 0 0 24px; width: 24px; }
-.note-arrow {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 18px;
-  line-height: 1;
-  padding: 4px 0;
-  cursor: pointer;
-  font-family: inherit;
-  opacity: .35;                    /* understated hint */
-  transition: opacity var(--dur-fast) var(--ease);
-}
-.note-arrow:hover { opacity: 1; }
-.note-arrow:focus-visible { outline: none; }
-.note-viewport { overflow: hidden; flex: 1 1 auto; min-width: 0; }
-.note-slide { text-align: center; padding: 0 2px; }
-/* in a carousel, slides stack and slide in/out directionally */
-.note-carousel .note-viewport { position: relative; }
-.note-carousel .note-slide {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%;
-  transition: transform var(--dur) var(--ease);
-}
-.note-text {
-  margin: 0;
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 14.5px;
-  line-height: 1.4;
-  color: var(--muted);
-}
-.note-from {
-  display: block;
-  margin-top: 6px;
-  font-size: 10px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
 
 /* ---------- Collapsible room map ---------- */
 .disclosure {
   margin: 0 0 20px;   /* clear break before the "Your seat" block */
 }
+/* A quiet text link, not a heavy button. Underlined so "interactive" reads by
+   form, not colour — the accent bronze is reserved for the "you" selection. */
 .disc-btn {
-  width: 100%;
-  display: block;
-  text-align: center;           /* centered link */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
+  margin: 0 auto;
   background: none;
   border: none;
   color: var(--accent);
   font-size: 12.5px;
-  font-weight: 500;
-  padding: 4px 8px 6px;         /* small top pad keeps it near the table number */
+  font-weight: 600;
+  padding: 4px 8px;
   cursor: pointer;
   font-family: inherit;
   transition: color var(--dur-fast) var(--ease);
+}
+.disc-btn .disc-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
 }
 .disc-btn:focus-visible { outline: none; }
 /* Only real pointers get the hover tint — avoids a "stuck" colour after a tap on touchscreens. */
@@ -643,9 +580,8 @@ header.hero {
 }
 .disc-btn .chev {
   display: inline-block;
-  margin-left: 6px;
-  font-size: 12px;
-  opacity: .45;                   /* lighter so the chunky glyph isn't heavy */
+  font-size: 11px;
+  opacity: .6;
   transition: transform var(--dur-fast) var(--ease);
 }
 .disc-btn.open .chev { transform: rotate(90deg); }   /* points down when open */
@@ -666,29 +602,12 @@ header.hero {
   overflow: hidden;
   min-height: 0;
 }
-/* the visible panel styling lives on a nested box (clipped when collapsed) */
+/* Room map is always visible now — the primary view, so it blends straight
+   into the card with no box around it. */
+.roomsection { margin: 30px 0 34px; }
 .room-box {
-  opacity: 0;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px 14px;
-  transition: opacity var(--dur) var(--ease);
+  padding: 8px 2px 0;
 }
-.disc-panel.open .room-box { opacity: 1; }
-
-.again {
-  display: block;
-  margin: 22px auto 0;
-  background: none;
-  border: 1.5px solid var(--line);
-  color: var(--ink);
-  padding: 11px 20px;
-  border-radius: 999px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.again:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- "Who's more likely to…" game ---------- */
 /* Invite on the seat card */
@@ -697,7 +616,7 @@ header.hero {
   align-items: center;
   gap: 12px;
   width: 100%;
-  margin: 16px 0 4px;
+  margin: 16px 0 2px;
   padding: 13px 16px;
   background: var(--accent-soft);
   border: 1px solid var(--line);
@@ -879,76 +798,3 @@ body.game-open { overflow: hidden; }
 .theme-toggle .icon-sun { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
-
-/* ---------- Hidden-pigeon hunt ---------- */
-.pigeon {
-  position: absolute;
-  z-index: 5;
-  padding: 6px;                 /* enlarges the tap target around the small icon */
-  margin: 0;
-  border: none;
-  background: none;
-  line-height: 0;
-  cursor: pointer;
-  color: var(--muted);
-  opacity: 0.5;                 /* subtle — you have to look */
-  transition: opacity var(--dur-fast) var(--ease),
-              transform var(--dur-fast) var(--ease),
-              color var(--dur-fast) var(--ease);
-}
-.pigeon:hover { opacity: 0.95; color: var(--accent); transform: translateY(-1px); }
-.pigeon svg { width: 22px; height: auto; display: block; fill: currentColor; }
-.pigeon.flit { pointer-events: none; animation: pigeonFlit 0.7s var(--ease) forwards; }
-@keyframes pigeonFlit {
-  0%   { opacity: 0.95; transform: translateY(0) rotate(0); }
-  30%  { opacity: 1; transform: translateY(-7px) rotate(-8deg); }
-  100% { opacity: 0; transform: translateY(-42px) rotate(-16deg) scale(0.8); }
-}
-/* Placements (first-pass — nudge these freely) */
-.p-1 { bottom: 2px; right: 2px; }     /* landing: hero corner (below the names) */
-.p-3 { top: 8px; right: 8px; }        /* seat card corner */
-.p-4 { bottom: 2px; right: 4px; }     /* room map corner */
-.p-5 { bottom: 12px; left: 14px; }    /* game end-screen corner */
-.p-6 { top: 10px; left: 12px; }       /* game question 2 corner */
-
-.pigeon-count[hidden] { display: none; }   /* the class's display would otherwise override [hidden] */
-.pigeon-count {
-  position: fixed;
-  top: 60px;                 /* directly under the dark-mode toggle */
-  right: 14px;
-  z-index: 40;
-  display: inline-flex;
-  align-items: center;
-  height: 38px;
-  padding: 0 9px;            /* icon-only ≈ a 38px circle, matching the toggle */
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  color: var(--ink);
-  font-size: 13px;
-  cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease),
-              border-color var(--dur-fast) var(--ease);
-}
-@media (hover: hover) { .pigeon-count:hover { border-color: var(--accent); } }
-.pigeon-count:active { transform: scale(0.94); }
-.pigeon-count .pigeon-glyph { line-height: 0; display: block; }
-.pigeon-count .pigeon-glyph svg { width: 18px; height: auto; display: block; fill: var(--accent); }
-/* The count is hidden until the icon is tapped, then slides out to the left. */
-.pc-num {
-  overflow: hidden;
-  max-width: 0;
-  opacity: 0;
-  white-space: nowrap;
-  transition: max-width var(--dur) var(--ease),
-              opacity var(--dur) var(--ease),
-              margin-left var(--dur) var(--ease);
-}
-.pigeon-count.open .pc-num { max-width: 64px; opacity: 1; margin-left: 7px; }
-.pigeon-count.pop { animation: pigeonCountPop 0.4s var(--ease); }
-@keyframes pigeonCountPop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.12); }
-  100% { transform: scale(1); }
-}

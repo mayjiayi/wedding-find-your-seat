@@ -273,21 +273,9 @@ window.SEATING_DATA = {
    CUTE CONTENT (easter eggs) — all editable text lives here.
    ------------------------------------------------------------
    - facts:      random one-liners shown on the landing page.
-   - partyNotes: optional messages shown to a group when they
-                 find their seat. Key = the exact "party" text.
-                 Each value is a LIST of messages; if there are
-                 two (e.g. one from May, one from Junyu) they
-                 become a swipeable carousel. One message = no
-                 swipe. Groups not listed here simply show none.
-                 (These are placeholders.)
    ============================================================ */
 
 window.WEDDING_CONTENT = {
-  // Used to label the note ("from the bride / the groom / the couple") based on
-  // who signed each message. Match these to the "from" values you use below.
-  bride: "May",
-  groom: "Junyu",
-
   // A fact is either a plain string (shared "we" fact, no signature) or
   // { text, by } to sign it with "— May" / "— Junyu".
   // Order is interleaved so signatures alternate — a signed fact is always
@@ -387,29 +375,5 @@ window.WEDDING_CONTENT = {
       answer: "Junyu",
       note: "Our miles king!!!"
     }
-  ],
-
-  partyNotes: {
-    "Work Friends": [
-      { from: "May", text: "From Monday complaints to this — thank you for cheering me on." },
-      { from: "Junyu", text: "Couldn't have made those deadlines without you all. Cheers!" }
-    ],
-    "College Crew": [
-      { from: "May", text: "The best chaos of my uni years. So glad you're here." },
-      { from: "Junyu", text: "Still can't believe they let us graduate. Love you guys." }
-    ],
-    "Tan Family": [
-      { from: "May", text: "Family is where my story started. Thank you for everything, always." }
-    ],
-    "Groom's Side": [{ from: "Junyu", text: "You lot made me who I am. Welcome to the family." }],
-    "Bride's Side": [
-      {
-        from: "May",
-        text: "The people who shaped my heart. Today wouldn't be complete without you."
-      }
-    ],
-    "Plus Ones": [
-      { from: "May & Junyu", text: "So glad you could join us — welcome, and enjoy the night!" }
-    ]
-  }
+  ]
 };
