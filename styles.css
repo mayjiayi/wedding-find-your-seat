@@ -533,6 +533,9 @@ header.hero {
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
+  /* currentColor, so the key always matches the label beside it — the .seat
+     rule above doesn't reach here, and SVG would otherwise default to black. */
+  fill: currentColor;
 }
 
 
