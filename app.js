@@ -80,9 +80,53 @@
   function initApp() {
   var data = window.SEATING_DATA;
 
+  // ---- All wording comes from WEDDING_CONTENT in data.js ----
+  // Fallbacks keep the page sane if a key is ever missing or misspelt.
+  var CONTENT = window.WEDDING_CONTENT || {};
+  var DETAILS = CONTENT.details || {};
+  var LABELS = CONTENT.labels || {};
+  function detail(key, fallback) { return DETAILS[key] != null ? DETAILS[key] : fallback; }
+  function label(key, fallback) { return LABELS[key] != null ? LABELS[key] : fallback; }
+
+  // Paint the fixed page copy (header, search box, facts heading) from data.js.
+  function applyDetails() {
+    // Only ever REPLACE text, never erase it: if data.js is missing a key (or a
+    // browser is holding an old cached copy), leave whatever the page already
+    // has rather than wiping the header to nothing.
+    function put(sel, value) {
+      if (value == null || value === "") return;
+      var el = document.querySelector(sel);
+      if (el) el.textContent = value;
+    }
+    put(".hero .names", detail("names", ""));
+    put(".hero .date", detail("date", ""));
+    put(".hero .venue", detail("venue", ""));
+    put(".hero .welcome", detail("welcome", ""));
+    put(".landing-fact .note-label", detail("factsLabel", ""));
+    var box = document.getElementById("searchInput");
+    var ph = detail("searchPlaceholder", "");
+    if (box && ph) box.placeholder = ph;
+    // The browser tab. The og: tags in index.html can't be set from here —
+    // link-preview crawlers don't run JavaScript.
+    if (detail("names", "")) document.title = detail("names", "") + " · Find Your Seat";
+  }
+  applyDetails();
+
   // --- Build a flat, searchable index of all guests ---
   var guests = [];
   var tablesById = {};
+
+  // Table 2 is the VIP table: it goes by name rather than a number, so every
+  // table after it shifts down one and ids 3..12 are shown as 2..11. The id in
+  // the data stays the stable identity - only the on-screen label changes.
+  var VIP_ID = 2;
+  function tableShort(id) {                       // room-map cell
+    if (id === VIP_ID) return "VIP";
+    return String(id > VIP_ID ? id - 1 : id);
+  }
+  function tableLabel(id) {
+    return id === VIP_ID ? "VIP Table" : "Table " + tableShort(id);
+  }
   data.tables.forEach(function (t) {
     tablesById[t.id] = t;
     ["top", "bottom"].forEach(function (side) {
@@ -149,7 +193,7 @@
     if (currentMatches.length === 0) {
       var li = document.createElement("li");
       li.className = "empty";
-      li.textContent = "Can't find your name? Check the spelling, or please ask one of our ushers.";
+      li.textContent = label("noMatch", "Can't find your name? Please ask one of our ushers.");
       sugEl.appendChild(li);
     } else {
       currentMatches.forEach(function (g, idx) {
@@ -159,7 +203,7 @@
         name.textContent = g.name;
         var tbl = document.createElement("span");
         tbl.className = "tbl";
-        tbl.textContent = "Table " + g.table;
+        tbl.textContent = tableLabel(g.table);
         li.appendChild(name);
         li.appendChild(tbl);
         li.addEventListener("mousedown", function (e) {
@@ -234,8 +278,23 @@
     var col2 = data.tables.filter(function (t) { return t.capacity === 12; }).sort(byId);
     function cell(t) {
       var here = t.id === viewer.table;
-      return '<div class="rt' + (here ? ' here' : '') + '">' + t.id + '</div>';
+      return '<div class="rt' + (here ? ' here' : '') + '">' + tableShort(t.id) + '</div>';
     }
+
+    // How far up the aisle the guest walks: from the entrance (bottom of the
+    // grid) to the row their table sits on. Fed to the CSS animation as --walk
+    // so the arrow stops level with their table instead of running to the top.
+    var ROW_H = 34, ROW_GAP = 8;          // must match .rt height and .rcol gap
+    var row = -1, rows = 0, side = 0;     // side: -1 = left column, +1 = right
+    [col1, col2].forEach(function (col, ci) {
+      col.forEach(function (t, i) {
+        if (t.id === viewer.table) { row = i; rows = col.length; side = ci === 0 ? -1 : 1; }
+      });
+    });
+    var walk = row < 0 ? 0 : (rows - 1 - row) * (ROW_H + ROW_GAP) + ROW_H / 2;
+    // At the end of the walk the arrow turns to point at the guest's own table:
+    // left for the 8-seat column, right for the 12-seat one.
+    var turn = side * 90;
     return '<div class="roommap">' +
       '<div class="room-wall top">' +
         '<span class="wall"></span>' +
@@ -245,6 +304,14 @@
       '<div class="rgrid">' +
         '<div class="rcol small">' + col1.map(cell).join("") + '</div>' +
         '<div class="rcol big">' + col2.map(cell).join("") + '</div>' +
+        // Walking arrow in the aisle. Absolutely positioned, so it is out of
+        // the flex flow and never disturbs the two columns.
+        '<div class="aisle" style="--walk:' + walk + 'px;--turn:' + turn + 'deg" aria-hidden="true">' +
+          '<span class="aisle-path"><i></i></span>' +
+          '<svg class="aisle-arrow" viewBox="0 0 12 16">' +
+            '<path d="M6 15V3M6 2 1.5 7M6 2 10.5 7"/>' +
+          '</svg>' +
+        '</div>' +
       '</div>' +
       '<div class="entrance">' +
         '<div class="entrance-row">' +
@@ -353,34 +420,54 @@
       return s && s.party !== viewer.party;
     });
     var legendHTML = hasOthers
-      ? '<p class="seat-legend">' + PERSON_SVG + '<span>Other guests at your table</span></p>'
+      ? '<p class="seat-legend">' + PERSON_SVG + '<span>' +
+          escapeHTML(label("otherGuests", "Other guests at your table")) + '</span></p>'
       : '';
 
     return '<div class="card">' +
         '<div class="name">' + escapeHTML(viewer.name) + '</div>' +
-        '<span class="table-badge">You\'re at<b>Table ' + viewer.table + '</b></span>' +
+        '<span class="table-badge">' + escapeHTML(label("tableBadge", "You're at")) +
+          '<b>' + tableLabel(viewer.table) + '</b></span>' +
 
         // Room map — always visible: the primary "where's my table" answer.
         '<div class="roomsection">' +
           '<div class="room-box">' +
             roomMapHTML(viewer) +
           '</div>' +
+          '<p class="seat-by">' +
+            '<span class="sb-icon" aria-hidden="true">' +
+              '<svg viewBox="0 0 24 24">' +
+                '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>' +
+                '<path d="M13.7 21a2 2 0 0 1-3.4 0"/>' +
+              '</svg>' +
+            '</span>' +
+            '<span>' + escapeHTML(label("seatBy", "Please be seated by")) +
+              ' <b>' + escapeHTML(detail("seatedBy", "")) + '</b></span>' +
+          '</p>' +
         '</div>' +
 
         // Seat map — collapsible detail: the secondary "where exactly do I sit".
         '<div class="disclosure">' +
           '<button class="disc-btn" id="seatToggle" aria-expanded="false">' +
-            '<span class="disc-label">See your exact seat</span>' +
+            '<span class="disc-label">' + escapeHTML(label("seeSeat", "See your exact seat")) + '</span>' +
             '<span class="chev" aria-hidden="true">&#8250;</span>' +
           '</button>' +
           '<div class="disc-panel" id="seatPanel">' +
             '<div class="disc-panel-inner">' +
               '<div class="seatmap"><div class="seatmap-inner">' +
                 sideHTML(t.top, viewer) +
-                '<div class="table-surface">Table ' + viewer.table + '</div>' +
+                // The triangle marks which way the table faces (towards the
+                // screen), so a guest knows how they'll be sitting.
+                '<div class="table-surface">' +
+                  tableLabel(viewer.table) +
+                  '<svg class="surface-arrow" viewBox="0 0 12 10" role="img" aria-label="Faces the screen">' +
+                    '<path d="M6 0 12 10H0Z"/>' +
+                  '</svg>' +
+                '</div>' +
                 sideHTML(t.bottom, viewer) +
               '</div></div>' +
-              '<p class="scroll-hint" id="scrollHint" hidden>Swipe to see the whole table &rarr;</p>' +
+              '<p class="scroll-hint" id="scrollHint" hidden>' +
+                escapeHTML(label("swipeHint", "Swipe to see the whole table →")) + '</p>' +
               legendHTML +
             '</div>' +
           '</div>' +
@@ -399,8 +486,8 @@
                 '</svg>' +
               '</span>' +
               '<span class="gi-text">' +
-                '<span class="gi-kicker">While you wait…</span>' +
-                '<span class="gi-title">Play “Who\'s more likely to…”</span>' +
+                '<span class="gi-kicker">' + escapeHTML(label("gameKicker", "While you wait")) + '</span>' +
+                '<span class="gi-title">' + escapeHTML(label("gameTitle", "Play the game")) + '</span>' +
               '</span>' +
               '<span class="gi-arrow" aria-hidden="true">&#8250;</span>' +
             '</button>'
@@ -507,7 +594,9 @@
           '</div>' +
           '<div class="game-reveal" hidden>' +
             '<p class="game-caption"></p>' +
-            '<button type="button" class="game-next">' + (lastOne ? "See results" : "Next") + ' &#8250;</button>' +
+            '<button type="button" class="game-next">' +
+              escapeHTML(lastOne ? label("gameResults", "See results") : label("gameNext", "Next")) +
+              ' &#8250;</button>' +
           '</div>' +
         '</div>'
       );
@@ -558,12 +647,14 @@
           '<h2 class="game-score">You matched us ' + score + " / " + n + '</h2>' +
           '<p class="game-endline">' + escapeHTML(line) + '</p>' +
           '<div class="game-endbtns">' +
-            '<button type="button" class="game-again">Play again</button>' +
+            '<button type="button" class="game-again">' + escapeHTML(label("gameAgain", "Play again")) + '</button>' +
             '<button type="button" class="game-back">Back to my seat</button>' +
           '</div>' +
         '</div>'
       );
       wireClose();
+      // Burst out of the results panel itself, not from the top of the page.
+      burstConfetti(gameEl.querySelector(".game-sheet"));
       gameEl.querySelector(".game-again").addEventListener("click", function () {
         queue = rotate(all); idx = 0; score = 0; renderQuestion();
       });
@@ -576,6 +667,104 @@
   }
 
   // Fade the card in, then scroll it to the top so it dominates the screen.
+  // ---- Confetti: a short burst when a guest's seat card appears ----
+  // Plain DOM elements animated by CSS, deliberately. CSS animations are driven
+  // by time, not by frames, so a phone in Low Power Mode (which halves the
+  // refresh rate) just draws the same motion less often — it never runs slow or
+  // stutters. They also animate transform/opacity only, so they stay on the
+  // compositor and never touch the main thread.
+  var CONFETTI_COLORS = ["#d4a44c", "#c9a27a", "#a8743f", "#875f3f", "#e0b088", "#d98f7a"];
+  var confettiEl = null;
+  var confettiTimer = null;
+
+  function reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function stopConfetti() {
+    clearTimeout(confettiTimer);
+    if (confettiEl && confettiEl.parentNode) confettiEl.parentNode.removeChild(confettiEl);
+    confettiEl = null;
+  }
+
+  function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
+
+  // Pass an element to burst OUTWARD from its centre (used at the end of the
+  // game, where a shower from the top of the page would be nowhere near the
+  // modal). Pass nothing for the default: a shower falling from above.
+  function burstConfetti(origin) {
+    if (reducedMotion()) return;
+    stopConfetti();                       // a second search never stacks bursts
+
+    var box = document.createElement("div");
+    box.setAttribute("aria-hidden", "true");   // decorative: never announced
+
+    var from = null;
+    if (origin) {
+      var r = origin.getBoundingClientRect();
+      if (r.width && r.height) {
+        from = true;
+        box.style.setProperty("--ox", Math.round(r.left + r.width / 2) + "px");
+        box.style.setProperty("--oy", Math.round(r.top + r.height / 2) + "px");
+      }
+    }
+    box.className = "confetti" + (from ? " confetti-burst" : "");
+
+    var LONGEST = 0;
+    for (var i = 0; i < 50; i++) {
+      var dur = from ? rand(1.7, 2.4) : rand(1.3, 1.9);
+      var delay = from ? rand(0, 0.15) : rand(0, 0.3);
+      if (dur + delay > LONGEST) LONGEST = dur + delay;
+      var p = document.createElement("i");
+      p.style.width = rand(5, 10).toFixed(1) + "px";
+      p.style.height = rand(4, 8).toFixed(1) + "px";
+      p.style.background = CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0];
+      p.style.animationDuration = dur.toFixed(2) + "s";
+      p.style.animationDelay = delay.toFixed(2) + "s";
+      p.style.setProperty("--spin", rand(240, 900).toFixed(0) + "deg");
+
+      if (from) {
+        // Fly outward on a mostly-horizontal angle, then drift down as it
+        // fades — so it reads as bursting sideways out of the modal.
+        var dir = Math.random() < 0.5 ? -1 : 1;
+        var ang = rand(-0.65, 0.65);                  // radians off horizontal
+        // Distance grows with the longer flight time, so the pieces still
+        // leave the panel at a lively speed rather than drifting out.
+        var dist = rand(150, 340);
+        p.style.setProperty("--dx", Math.round(Math.cos(ang) * dist * dir) + "px");
+        p.style.setProperty("--dy", Math.round(Math.sin(ang) * dist + rand(20, 90)) + "px");
+      } else {
+        // Per-piece end state, so no two fall alike. Falls only a quarter to
+        // two fifths of the way down, well clear of the seat card.
+        p.style.left = rand(0, 100) + "%";
+        p.style.setProperty("--fall", rand(26, 42).toFixed(0) + "vh");
+        p.style.setProperty("--dx", rand(-45, 45).toFixed(0) + "px");
+      }
+      box.appendChild(p);
+    }
+
+    document.body.appendChild(box);
+    confettiEl = box;
+    // Tidy up once the last piece has finished.
+    confettiTimer = setTimeout(stopConfetti, (LONGEST + 0.2) * 1000);
+  }
+
+
+  // Smooth scrolling has no completion event in every browser: listen for
+  // scrollend where it exists, with a timeout as the fallback — which also
+  // covers the case where the page was already in place and never scrolled.
+  function afterScroll(fn) {
+    var ran = false;
+    function run() {
+      if (ran) return;
+      ran = true;
+      window.removeEventListener("scrollend", run);
+      fn();
+    }
+    if ("onscrollend" in window) window.addEventListener("scrollend", run);
+    setTimeout(run, 450);
+  }
+
   function showCard() {
     requestAnimationFrame(function () { resultEl.classList.add("show"); });
     clearTimeout(scrollTimer);
@@ -583,6 +772,8 @@
     // is accurate. Kept small for snappiness; bump up if scroll lands off.
     scrollTimer = setTimeout(function () {
       resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Celebrate only once the card is actually in view.
+      afterScroll(burstConfetti);
     }, 120);
   }
 

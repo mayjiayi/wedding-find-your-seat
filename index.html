@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- LINK-PREVIEW TAGS ONLY (WhatsApp / Facebook / Google).
+       These four lines are the one place wording is NOT read from data.js:
+       preview crawlers don't run JavaScript, so they can't be set at runtime.
+       If you change names/date/venue in data.js, update them here too. -->
   <meta name="description" content="Find your table at Junyu & May's wedding." />
   <!-- keep the guest list out of search engines (URL still works for anyone with it) -->
   <meta name="robots" content="noindex" />
@@ -51,19 +55,20 @@
     </svg>
   </button>
   <div class="wrap">
+    <!-- Text is filled in from details{} in data.js — edit it there, not here. -->
     <header class="hero">
-      <h1 class="names">Junyu &amp; May</h1>
-      <div class="date">26 September 2026</div>
-      <div class="venue">The Secret Haven</div>
+      <h1 class="names"></h1>
+      <div class="date"></div>
+      <div class="venue"></div>
       <div class="ornament"><span></span>&#10022;<span></span></div>
-      <p class="welcome">You made it! Let's find your seat.</p>
+      <p class="welcome"></p>
     </header>
 
     <div class="search">
       <input
         id="searchInput"
         type="text"
-        placeholder="Start typing your name…"
+        placeholder=""
         autocomplete="off"
         autocorrect="off"
         autocapitalize="words"
@@ -78,7 +83,7 @@
     </div>
 
     <div class="landing-fact">
-      <div class="note-label">Did you know?</div>
+      <div class="note-label"></div>
       <p class="fact" id="fact" aria-live="off"></p>
       <div class="fact-progress" aria-hidden="true"><i id="factBar"></i></div>
     </div>
@@ -86,7 +91,12 @@
     <section id="result" class="result" aria-live="polite"></section>
   </div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <!-- ?v= is a cache-buster. index.html and data.js have to agree on shape:
+       a browser holding an OLD cached data.js alongside a NEW index.html blanks
+       the header, because the text now lives in data.js. Changing this number
+       makes the URL different, so phones cannot serve a stale pair from cache.
+       BUMP IT whenever data.js or app.js changes shape. -->
+  <script src="data.js?v=2"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

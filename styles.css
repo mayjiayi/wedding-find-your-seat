@@ -441,6 +441,7 @@ header.hero {
   display: flex;
   justify-content: center;
   gap: var(--rt-gap);
+  position: relative;             /* anchors the aisle arrow */
 }
 .rcol { display: flex; flex-direction: column; gap: 8px; }
 /* Non-you tables: quiet, flat markers — deliberately NOT styled like buttons,
@@ -798,3 +799,255 @@ body.game-open { overflow: hidden; }
 .theme-toggle .icon-sun { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+
+/* ---------- Seat-map orientation marker ---------- */
+/* A small triangle on the table surface, beside the table's name, pointing at
+   the side of the table that faces the screen. .table-surface is already a
+   centred flex row, so the arrow just sits in line with the label. */
+.surface-arrow {
+  width: 9px;
+  height: 8px;
+  flex: none;
+  margin-left: 4px;               /* small: the label's letter-spacing already
+                                     leaves a trailing gap after the last letter */
+  fill: currentColor;
+}
+
+/* ---------- Aisle route to the table ---------- */
+/* A dotted trail runs from just above the entrance doors up to the guest's own
+   table, with an arrow travelling along it. Both columns are the same width,
+   so the centre of .rgrid IS the aisle. --walk (set per guest in app.js) is the
+   distance from the bottom of the grid to their table's row. */
+.aisle {
+  position: absolute;             /* out of the flex flow: columns unaffected */
+  left: 50%;
+  bottom: 0;
+  width: var(--rt-gap);
+  height: 100%;
+  margin-left: calc(var(--rt-gap) / -2);
+  pointer-events: none;           /* never steals a tap from the table cell */
+  --aisle-lead: 14px;             /* run-in below the grid, toward the doors */
+  --arrow-h: 16px;                /* the arrow's own height, halved for centring */
+  --trail-gap: 10px;              /* the trail always stops this far short of the arrow */
+}
+/* The dotted trail, laid down behind the arrow as it travels.
+   Revealed by GROWING A CLIPPING WRAPPER, not with clip-path. clip-path is a
+   main-thread property, and browsers occasionally paint a frame at the loop
+   seam where the clip has reset but the opacity has not — which flashed the
+   whole line. The wrapper is anchored at the bottom; its inner element has a
+   FIXED height and is also bottom-anchored, so the dots are uncovered in
+   place and never move, stretch or change spacing as the trail grows. */
+.aisle-path {
+  position: absolute;
+  left: 50%;
+  margin-left: -1px;
+  width: 2px;
+  bottom: calc(var(--aisle-lead) * -1);
+  height: calc(var(--walk) + var(--aisle-lead) - var(--trail-gap));
+  overflow: hidden;
+  animation: aisleTrail 4s var(--ease) infinite;
+}
+.aisle-path i {
+  position: absolute;
+  left: 0;
+  bottom: 0;                      /* fixed and anchored: the dots stay put */
+  width: 100%;
+  height: calc(var(--walk) + var(--aisle-lead) - var(--trail-gap));
+  background: repeating-linear-gradient(
+    to top,
+    var(--accent) 0 3px,
+    transparent 3px 9px
+  );
+  border-radius: 2px;
+}
+/* The 0-6% and 94-100% holds keep the trail invisible across the loop seam, so
+   the reset back to zero height can never be caught mid-paint.
+   The trail always stops --trail-gap short of the arrow, at every point in the
+   animation — not just after the turn. While the arrow points up its shaft
+   would hide a dot at its centre, but the moment it turns sideways that dot
+   would be exposed. Keeping the gap throughout means there is never a final
+   dot to reveal. */
+@keyframes aisleTrail {
+  0%   { height: 0; opacity: 0; }
+  6%   { height: 0; opacity: 0; }
+  16%  { opacity: .4; }                        /* quiet: it guides, it doesn't shout */
+  60%  { height: calc(var(--walk) + var(--aisle-lead) - var(--trail-gap)); opacity: .4; }
+  82%  { height: calc(var(--walk) + var(--aisle-lead) - var(--trail-gap)); opacity: .4; }
+  94%  { height: calc(var(--walk) + var(--aisle-lead) - var(--trail-gap)); opacity: 0; }
+  100% { height: calc(var(--walk) + var(--aisle-lead) - var(--trail-gap)); opacity: 0; }
+}
+.aisle-arrow {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--aisle-lead) * -1);
+  margin-left: -6px;              /* half the arrow width */
+  width: 12px;
+  height: var(--arrow-h);
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: aisleWalk 4s var(--ease) infinite;
+}
+/* Same dead zone as the trail, so the two stay in step through the seam.
+   The end translate stops half an arrow-height short of --walk, so the arrow's
+   OWN CENTRE (which is also what it rotates about) lands on the vertical centre
+   of the table's cell rather than its bottom edge.
+   On arrival (60%) the arrow turns to face the guest's own table — --turn is
+   -90deg for the left column, +90deg for the right, set per guest in app.js.
+   Every keyframe carries an explicit rotate() so the transform interpolates
+   cleanly rather than jumping when the rotation first appears. */
+@keyframes aisleWalk {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  6%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  16%  { opacity: 1; }
+  60%  { transform: translateY(calc((var(--walk) + var(--aisle-lead) - (var(--arrow-h) / 2)) * -1)) rotate(0deg); opacity: 1; }
+  72%  { transform: translateY(calc((var(--walk) + var(--aisle-lead) - (var(--arrow-h) / 2)) * -1)) rotate(var(--turn)); opacity: 1; }
+  82%  { transform: translateY(calc((var(--walk) + var(--aisle-lead) - (var(--arrow-h) / 2)) * -1)) rotate(var(--turn)); opacity: 1; }
+  94%  { transform: translateY(calc((var(--walk) + var(--aisle-lead) - (var(--arrow-h) / 2)) * -1)) rotate(var(--turn)); opacity: 0; }
+  100% { transform: translateY(calc((var(--walk) + var(--aisle-lead) - (var(--arrow-h) / 2)) * -1)) rotate(var(--turn)); opacity: 0; }
+}
+/* Reduced motion: keep the dotted trail (it is static and useful) but park the
+   arrow at the table instead of animating. Without this the global
+   "animation-duration: .001s" rule would turn an infinite loop into a strobe —
+   the exact thing that setting exists to prevent. */
+@media (prefers-reduced-motion: reduce) {
+  .aisle-path {
+    animation: none !important;   /* show the whole route at once */
+    opacity: .4;
+  }
+  .aisle-arrow {
+    animation: none !important;
+    transform: translateY(calc((var(--walk) + var(--aisle-lead) - (var(--arrow-h) / 2)) * -1)) rotate(var(--turn));
+  }
+}
+
+/* ---------- "Be seated by" reminder ---------- */
+/* Sits just under the room map, inside .roomsection, so it reads as part of
+   the "where do I go" answer rather than a detached notice. */
+.seat-by {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 2px 0;
+  /* Deliberately NOT the filled, rounded card used by .game-invite. That card
+     is a button you can tap; this is a notice you only read. Giving them the
+     same box made the reminder look tappable and the game look like a note.
+     A left rule reads as "information", a filled card reads as "action". */
+  padding: 3px 0 3px 12px;
+  background: none;
+  border: 0;
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-align: left;
+}
+.seat-by b {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;            /* never split the time across lines */
+}
+.sb-icon { flex: 0 0 auto; display: flex; color: var(--accent); }
+.sb-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Warm glow behind the search field ---------- */
+/* The landing page has exactly one action: type your name. centerLanding()
+   puts the field at 45% of the viewport; this pool of warm light makes that
+   focal point read instantly rather than relying on position alone.
+   It fades out once a result shows, when the card becomes the priority. */
+.search::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* 100%, not wider: a transformed pseudo-element still contributes to the
+     page's scrollable area, so anything over 100% made the whole page scroll
+     sideways. The pool's softness comes from the gradient, not the width. */
+  width: 100%;
+  /* 130px keeps the falloff inside the ~26px gaps above and below the field,
+     so NO text sits in the tint. That is what lets the pool be this strong
+     without costing any contrast. Those gaps come from fixed margins, so this
+     holds at any screen size. */
+  height: 130px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(176, 137, 104, .34), rgba(176, 137, 104, 0) 72%);
+  pointer-events: none;            /* never intercepts a tap on the input */
+  z-index: -1;                     /* behind the field, above the page */
+  transition: opacity var(--dur-slow) var(--ease);
+}
+.wrap.has-result .search::before { opacity: 0; }
+:root[data-theme="dark"] .search::before {
+  background: radial-gradient(closest-side, rgba(203, 160, 112, .30), rgba(203, 160, 112, 0) 72%);
+}
+
+/* ---------- Confetti ---------- */
+/* Pieces are plain <i> elements animated by CSS. Only transform and opacity
+   animate, so the whole burst stays on the compositor: no canvas, no
+   requestAnimationFrame, nothing on the main thread. Being time-driven rather
+   than frame-driven, it plays at the same speed whether the phone is running
+   at 60fps or throttled to 30fps in Low Power Mode. */
+.confetti {
+  position: fixed;
+  inset: 0;
+  /* Above the game overlay (60), so the end-of-game burst is not hidden behind
+     its dimmed backdrop. Safe to sit on top: pointer-events is none, so the
+     game's buttons stay tappable through it. */
+  z-index: 70;
+  pointer-events: none;            /* never intercepts a tap */
+  overflow: hidden;
+}
+.confetti i {
+  position: absolute;
+  top: -8vh;
+  border-radius: 1px;
+  animation-name: confettiFall;
+  /* linear, deliberately: any ease-out makes the pieces coast to a halt and
+     only then fade, which reads as the animation "sticking" at the end. A
+     steady rate looks like something actually falling. */
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+/* --fall, --dx and --spin are set per piece in app.js, so no two fall alike.
+   Opacity reaches 0 at 85% while the transform keeps going to 100%, so each
+   piece disappears mid-drop rather than after it has stopped. */
+@keyframes confettiFall {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  45%  { opacity: 1; }
+  85%  { opacity: 0; }
+  100% { transform: translate3d(var(--dx), var(--fall), 0) rotate(var(--spin)); opacity: 0; }
+}
+/* Guests who ask for less motion get no burst at all (app.js skips building it
+   — this is the belt-and-braces half). */
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
+}
+
+/* Burst variant: pieces start at the centre of a given element (--ox/--oy) and
+   fly outward, instead of falling from the top of the page. Used at the end of
+   the game, where the shower would otherwise be nowhere near the modal. */
+.confetti-burst i {
+  top: var(--oy);
+  left: var(--ox);
+  margin: -3px 0 0 -4px;           /* centre the piece on the origin point */
+  animation-name: confettiBurst;
+  /* An outward burst SHOULD decelerate — that is what being thrown looks like.
+     The fade still finishes at 88%, so pieces vanish while still moving. */
+  animation-timing-function: cubic-bezier(.12, .6, .3, 1);
+}
+@keyframes confettiBurst {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  55%  { opacity: 1; }
+  88%  { opacity: 0; }
+  100% { transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--spin)); opacity: 0; }
+}

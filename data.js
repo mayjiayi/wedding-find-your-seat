@@ -18,264 +18,321 @@
      displayed name never changes, but any alias also finds them.
         { "name": "Elizabeth Tan", "party": "...", "aliases": ["Liz", "Beth"] }
 
-   NOTE: This is MOCK data for testing the layout & features.
+   ------------------------------------------------------------
+   ORDER OF THIS FILE: tables appear in the order guests see them
+   — VIP table first, then Table 1 through Table 11.
+
+   HEADS UP — "id" is NOT the number shown to guests. The id is the
+   app's internal handle (it keys seat lookups and the room map, so
+   never renumber it). Table 2 is shown as the "VIP Table" with no
+   number, so every id above it displays one lower:
+
+        id 1  -> "Table 1"        id 7  -> "Table 6"
+        id 2  -> "VIP Table"      id 8  -> "Table 7"
+        id 3  -> "Table 2"        id 9  -> "Table 8"
+        id 4  -> "Table 3"        id 10 -> "Table 9"
+        id 5  -> "Table 4"        id 11 -> "Table 10"
+        id 6  -> "Table 5"        id 12 -> "Table 11"
+
+   Each block's comment gives the guest-facing name first, then the
+   id — so edit by the heading, not the id. The mapping itself lives
+   in app.js (VIP_ID / tableShort / tableLabel).
+
+   NOTE: All 12 tables hold REAL guest data. No mock/placeholder
+   blocks remain. A few SEATS are still relationship labels rather
+   than names (Bride, Groom, 2nd Ah Pei, 2nd Ahm, and son/wife/
+   daughter/big uhm on Table 7) - those guests cannot search for
+   themselves until real names are filled in.
    ============================================================ */
 
 window.SEATING_DATA = {
   tables: [
-    // ---------- TABLE 1 (8 seats) — one party of 7 + 1 empty ----------
-    {
-      id: 1,
-      capacity: 8,
-      top: [
-        { name: "Wei Tan", party: "Tan Family", aliases: ["Ah Wei", "Wei Wei"] },
-        { name: "Mei Tan", party: "Tan Family" },
-        { name: "Jun Tan", party: "Tan Family" },
-        { name: "Li Tan", party: "Tan Family" }
-      ],
-      bottom: [
-        { name: "Hao Tan", party: "Tan Family" },
-        { name: "Xin Tan", party: "Tan Family" },
-        { name: "Yi Tan", party: "Tan Family" },
-        null
-      ]
-    },
-
-    // ---------- TABLE 3 (8 seats) — two parties of 4 ----------
-    {
-      id: 3,
-      capacity: 8,
-      top: [
-        { name: "Daniel Ong", party: "Ong Family" },
-        { name: "Grace Ong", party: "Ong Family" },
-        { name: "Ethan Ong", party: "Ong Family" },
-        { name: "Chloe Ong", party: "Ong Family" }
-      ],
-      bottom: [
-        { name: "Marcus Lee", party: "Lee Family" },
-        { name: "Rachel Lee", party: "Lee Family" },
-        { name: "Adam Lee", party: "Lee Family" },
-        { name: "Sophie Lee", party: "Lee Family" }
-      ]
-    },
-
-    // ---------- TABLE 5 (8 seats) — one full party of 8 ----------
-    {
-      id: 5,
-      capacity: 8,
-      top: [
-        { name: "Nathan Goh", party: "Goh Family" },
-        { name: "Olivia Goh", party: "Goh Family" },
-        { name: "Lucas Goh", party: "Goh Family" },
-        { name: "Emma Goh", party: "Goh Family" }
-      ],
-      bottom: [
-        { name: "Ryan Goh", party: "Goh Family" },
-        { name: "Zoe Goh", party: "Goh Family" },
-        { name: "Aaron Goh", party: "Goh Family" },
-        { name: "Mia Goh", party: "Goh Family" }
-      ]
-    },
-
-    // ---------- TABLE 7 (8 seats) — party of 5 + party of 3 ----------
-    {
-      id: 7,
-      capacity: 8,
-      top: [
-        { name: "Ben Kwan", party: "College Crew", quip: "Will insist he knew about it first." },
-        {
-          name: "Kayla Sim",
-          party: "College Crew",
-          quip: "Runs entirely on iced coffee and chaos."
-        },
-        { name: "Josh Chua", party: "College Crew", quip: "Ask him about the karaoke incident." },
-        { name: "Ivan Ho", party: "College Crew" }
-      ],
-      bottom: [
-        { name: "Priya Nair", party: "College Crew" },
-        { name: "Faisal Rahman", party: "Neighbours" },
-        { name: "Nurul Aini", party: "Neighbours" },
-        { name: "Siti Zahra", party: "Neighbours" }
-      ]
-    },
-
-    // ---------- TABLE 9 (8 seats) — party of 6 + 2 empty ----------
-    {
-      id: 9,
-      capacity: 8,
-      top: [
-        { name: "Alan Teo", party: "Work Friends" },
-        { name: "Bernice Koh", party: "Work Friends" },
-        { name: "Cheryl Ang", party: "Work Friends" },
-        { name: "Derek Lau", party: "Work Friends" }
-      ],
-      bottom: [
-        { name: "Elaine Foo", party: "Work Friends" },
-        { name: "Gary Seah", party: "Work Friends" },
-        null,
-        null
-      ]
-    },
-
-    // ---------- TABLE 11 (8 seats) — one full party of 8 ----------
-    {
-      id: 11,
-      capacity: 8,
-      top: [
-        { name: "Hui Zhen", party: "Maersk MT" },
-        { name: "Wei Jie", party: "Maersk MT" },
-        { name: "Yi Chen", party: "Maersk MT" },
-        { name: "Kok Wei", party: "Maersk MT" }
-      ],
-      bottom: [
-        null,
-        { name: "Liying", party: "Maersk MT" },
-        { name: "Shiya", party: "Maersk MT" },
-        { name: "Zach", party: "Maersk MT" }
-      ]
-    },
-
-    // ---------- TABLE 2 (12 seats) — one full party of 12 ----------
+    // ---------- VIP TABLE  (id 2, 12 seats, 12 filled) — real guests ----------
     {
       id: 2,
       capacity: 12,
       top: [
-        { name: "Jasmine Ng", party: "Extended Family" },
-        { name: "John Ng", party: "Extended Family" },
-        { name: "Terence Wong", party: "Extended Family" },
-        { name: "Ursula Wong", party: "Extended Family" },
-        { name: "Victor Wong", party: "Extended Family" },
-        { name: "Wendy Wong", party: "Extended Family" }
+        { name: "Yi Chaw", party: "VIP Table" },
+        { name: "Maung Myint Lwin", party: "VIP Table", aliases: ["May dad"] },
+        { name: "Bride", party: "VIP Table", aliases: ["May"] },
+        { name: "Groom", party: "VIP Table", aliases: ["Junyu"] },
+        { name: "Ong Jun Hao", party: "VIP Table" },
+        { name: "陈一猛", party: "VIP Table" }
       ],
       bottom: [
-        { name: "Xavier Wong", party: "Extended Family" },
-        { name: "Yasmin Wong", party: "Extended Family" },
-        { name: "Zachary Wong", party: "Extended Family" },
-        { name: "Amanda Wong", party: "Extended Family" },
-        { name: "Brian Wong", party: "Extended Family" },
-        { name: "Carmen Wong", party: "Extended Family" }
+        { name: "Mabel Cho", party: "VIP Table" },
+        { name: "Daw Cho Cho Aung", party: "VIP Table", aliases: ["May mum"] },
+        { name: "Chen Dao Fang", party: "VIP Table", aliases: ["junyu mum"] },
+        { name: "Ong Cheong Hong", party: "VIP Table", aliases: ["junyu dad"] },
+        { name: "Jasmine Ong Jie Min", party: "VIP Table" },
+        { name: "陈晓彤", party: "VIP Table" }
       ]
     },
 
-    // ---------- TABLE 4 (12 seats) — party of 7 + party of 5 ----------
+    // ---------- TABLE 1  (id 1, 8 seats, 8 filled) — real guests ----------
+    {
+      id: 1,
+      capacity: 8,
+      top: [
+        { name: "Aye Set Moe", party: "Table 1" },
+        { name: "Kyi Zin Thant", party: "Table 1" },
+        { name: "Thant Htoo Zaw", party: "Table 1" },
+        { name: "Daw Tin Tin Win", party: "Table 1", aliases: ["May grandmother"] }
+      ],
+      bottom: [
+        { name: "Andrew Aung", party: "Table 1" },
+        { name: "Bella Chen", party: "Table 1" },
+        { name: "Khin Shwe", party: "Table 1" },
+        { name: "U Aung Min", party: "Table 1", aliases: ["May grandfather"] }
+      ]
+    },
+
+    // ---------- TABLE 2  (id 3, 8 seats, 8 filled) — real guests ----------
+    {
+      id: 3,
+      capacity: 8,
+      top: [
+        { name: "Khin Khin Aye", party: "Table 2" },
+        { name: "Than Htay", party: "Table 2" },
+        { name: "Ye Lin Naing", party: "Table 2" },
+        { name: "Guan Guan", party: "Table 2" }
+      ],
+      bottom: [
+        { name: "Ye Lin Htay", party: "Table 2" },
+        { name: "Ye Lin Paing", party: "Table 2" },
+        { name: "Cayli Lin", party: "Table 2" },
+        { name: "Swe Myat Win", party: "Table 2" }
+      ]
+    },
+
+    // ---------- TABLE 3  (id 4, 12 seats, 12 filled) — real guests ----------
     {
       id: 4,
       capacity: 12,
       top: [
-        { name: "Dylan Png", party: "Church Group" },
-        { name: "Evelyn Sng", party: "Church Group" },
-        { name: "Farah Idris", party: "Church Group" },
-        { name: "Gerald Tay", party: "Church Group" },
-        { name: "Hannah Boey", party: "Church Group" },
-        { name: "Isaac Quek", party: "Church Group" }
+        { name: "Soe Myint", party: "Table 3" },
+        { name: "Han Htoo Zaw", party: "Table 3" },
+        { name: "Thida Myint", party: "Table 3" },
+        { name: "Yap Siew Tin", party: "Table 3" },
+        { name: "2nd Ah Pei", party: "Table 3" },
+        { name: "Jun Xiang", party: "Table 3" }
       ],
       bottom: [
-        { name: "Jolene Yeo", party: "Church Group" },
-        { name: "Kenneth Chai", party: "Poly Mates", aliases: ["Ken", "Kenny"] },
-        { name: "Lydia Soh", party: "Poly Mates" },
-        { name: "Malcolm Tng", party: "Poly Mates" },
-        { name: "Natalie Chow", party: "Poly Mates" },
-        { name: "Owen Lam", party: "Poly Mates" }
+        { name: "Moe Moe Aung", party: "Table 3" },
+        { name: "Kyu Kyu", party: "Table 3" },
+        { name: "Thaung Win", party: "Table 3" },
+        { name: "Lim Siew Miu", party: "Table 3" },
+        { name: "Lim Chwee Khoon", party: "Table 3" },
+        { name: "2nd Ahm", party: "Table 3" }
       ]
     },
 
-    // ---------- TABLE 6 (12 seats) — two parties of 6 ----------
+    // ---------- TABLE 4  (id 5, 8 seats, 8 filled) — real guests ----------
+    {
+      id: 5,
+      capacity: 8,
+      top: [
+        { name: "Pho Ti", party: "Table 4" },
+        { name: "Darryl Zhang", party: "Table 4" },
+        { name: "Liam Ye Lin Pyae", party: "Table 4" },
+        { name: "Ye Nay Lin", party: "Table 4" }
+      ],
+      bottom: [
+        { name: "Li Na", party: "Table 4" },
+        { name: "Chloe Zhang", party: "Table 4" },
+        { name: "Hannah Lin Pyae", party: "Table 4" },
+        { name: "Zin Hnin Phyu", party: "Table 4" }
+      ]
+    },
+
+    // ---------- TABLE 5  (id 6, 12 seats, 12 filled) — real guests ----------
     {
       id: 6,
       capacity: 12,
       top: [
-        { name: "Patrick Neo", party: "Sec School" },
-        { name: "Queenie Yap", party: "Sec School" },
-        { name: "Rayan Ali", party: "Sec School" },
-        { name: "Serena Chin", party: "Sec School" },
-        { name: "Tobias Ng", party: "Sec School" },
-        { name: "Una Chern", party: "Sec School" }
+        { name: "Thye Chin Meih", party: "May JC" },
+        { name: "Joyce Goh", party: "May JC" },
+        { name: "Lim Si Jia", party: "Table 5" },
+        { name: "Xiao Fen", party: "Table 5" },
+        { name: "Jin Fu", party: "Table 5" },
+        { name: "Ying Jie", party: "Table 5" }
       ],
       bottom: [
-        { name: "Vincent Fong", party: "Cousins" },
-        { name: "Winnie Loh", party: "Cousins" },
-        { name: "Xander Poh", party: "Cousins" },
-        { name: "Yvette Guan", party: "Cousins" },
-        { name: "Zoe Chik", party: "Cousins" },
-        { name: "Aiden Roy", party: "Cousins" }
+        { name: "Jasmine Tan", party: "May JC" },
+        { name: "Michael Per", party: "May JC" },
+        { name: "Clifford Teo", party: "Table 5" },
+        { name: "Hailey Lim Si Wei", party: "Table 5" },
+        { name: "Xiao Ping", party: "Table 5" },
+        { name: "Xiao Yun", party: "Table 5" }
       ]
     },
 
-    // ---------- TABLE 8 (12 seats) — party of 10 + 2 empty ----------
+    // ---------- TABLE 6  (id 7, 8 seats, 8 filled) — real guests ----------
+    {
+      id: 7,
+      capacity: 8,
+      top: [
+        { name: "Aye Aye Min", party: "Table 6" },
+        { name: "Winston Seow", party: "Table 6" },
+        { name: "Tin Aung Kyaw", party: "Table 6" },
+        { name: "Thein Naing", party: "Table 6" }
+      ],
+      bottom: [
+        { name: "U San Win", party: "Table 6" },
+        { name: "Cindy Chang", party: "Table 6" },
+        { name: "Aye Aye Maw", party: "Table 6" },
+        { name: "Moe Hpyu", party: "Table 6" }
+      ]
+    },
+
+    // ---------- TABLE 7  (id 8, 12 seats, 12 filled) — real guests
+    //            NOTE: 8 of these are relationship placeholders (son/wife/
+    //            daughter/big uhm) rather than names — those guests cannot
+    //            search for themselves until real names are filled in.
     {
       id: 8,
       capacity: 12,
       top: [
-        { name: "Bella Moktar", party: "Family Friends" },
-        { name: "Caleb Sng", party: "Family Friends" },
-        { name: "Denise Yap", party: "Family Friends" },
-        { name: "Elliot Tan", party: "Family Friends" },
-        { name: "Fiona Lee", party: "Family Friends" },
-        { name: "Gavin Ong", party: "Family Friends" }
+        { name: "Ah Yi Lan Lan", party: "Mum's guest" },
+        { name: "Ng Thiam Soon", party: "Mum's guest" },
+        { name: "son 3", party: "Table 7" },
+        { name: "wife 3", party: "Table 7" },
+        { name: "wife 1", party: "Table 7" },
+        { name: "son 1", party: "Table 7" }
       ],
       bottom: [
-        { name: "Heidi Lim", party: "Family Friends" },
-        { name: "Ian Chua", party: "Family Friends" },
-        { name: "Janet Soh", party: "Family Friends" },
-        { name: "Kelvin Ow", party: "Family Friends" },
-        null,
-        null
+        { name: "Ah Yi Yin Xin", party: "Mum's guest" },
+        { name: "Koi Chin Hwa", party: "Mum's guest" },
+        { name: "big uhm", party: "Table 7" },
+        { name: "daughter", party: "Table 7" },
+        { name: "wife 2", party: "Table 7" },
+        { name: "son 2", party: "Table 7" }
       ]
     },
 
-    // ---------- TABLE 10 (12 seats) — one full party of 12 ----------
+    // ---------- TABLE 8  (id 9, 8 seats, 8 filled) — real guests ----------
+    {
+      id: 9,
+      capacity: 8,
+      top: [
+        { name: "Samantha Ng", party: "Table 8" },
+        { name: "John Lim", party: "Table 8" },
+        { name: "Timothy Shong", party: "Table 8" },
+        { name: "Ang Yong Jia", party: "Table 8" }
+      ],
+      bottom: [
+        { name: "Sophia Azli", party: "Table 8" },
+        { name: "Nicholas Chua", party: "Table 8" },
+        { name: "Pang Yu Shao", party: "Table 8" },
+        { name: "Yeo Khai Sern", party: "Table 8" }
+      ]
+    },
+
+    // ---------- TABLE 9  (id 10, 12 seats, 12 filled) — real guests ----------
     {
       id: 10,
       capacity: 12,
       top: [
-        { name: "Kai Xin", party: "Bride's SSF" },
-        { name: "Wei En", party: "Bride's SSF" },
-        { name: "Yi Cheng", party: "Bride's SSF" },
-        { name: "Jie Wu", party: "Bride's SSF" },
-        { name: "Duan Jian", party: "Bride's SSF" },
-        { name: "Tengjie", party: "Bride's SSF" }
+        { name: "Fang Kai Xin", party: "Table 9" },
+        { name: "Lee Wei En", party: "Table 9" },
+        { name: "Chng Yi Cheng", party: "Table 9" },
+        { name: "Ng Jie Wu", party: "Table 9" },
+        { name: "Goh Duan Jian", party: "Table 9" },
+        { name: "Yu Tengjie", party: "Table 9" }
       ],
       bottom: [
-        { name: "Xue Yi", party: "Bride's SSF" },
-        { name: "Yong Han", party: "Bride's SSF" },
-        { name: "Gin Ling", party: "Bride's SSF" },
-        { name: "Ivy", party: "Bride's SSF" },
-        { name: "Siew Hwee", party: "Bride's SSF" },
-        { name: "Sherlyn", party: "Bride's SSF" }
+        { name: "Leong Xue Yi", party: "Table 9" },
+        { name: "Hannah Wang", party: "Table 9" },
+        { name: "Quek Gin Ling", party: "Table 9" },
+        { name: "Ivy Xu", party: "Table 9" },
+        { name: "Low Siew Hwee", party: "Table 9" },
+        { name: "Sherlyn Low", party: "Table 9" }
       ]
     },
 
-    // ---------- TABLE 12 (12 seats) — party of 8 + party of 4 ----------
+    // ---------- TABLE 10  (id 11, 8 seats, 7 filled) — real guests
+    //            The 8th seat is empty; it sits at the end of the top row
+    //            (only 3 names were given for that side).
+    {
+      id: 11,
+      capacity: 8,
+      top: [
+        null,
+        { name: "Tan Yi Chen", party: "Table 10" },
+        { name: "Liu Hui Zhen", party: "Table 10" },
+        { name: "Ta Shi Ya", party: "Table 10" }
+      ],
+      bottom: [
+        { name: "Zachary Loo", party: "Table 10" },
+        { name: "Tan Kok Wei", party: "Table 10" },
+        { name: "Ong Wei Jie", party: "Table 10" },
+        { name: "Thien Li Ying", party: "Table 10" }
+      ]
+    },
+
+    // ---------- TABLE 11  (id 12, 12 seats, 12 filled) — real guests ----------
     {
       id: 12,
       capacity: 12,
       top: [
-        { name: "Ping Teng", party: "Groom's SSF" },
-        { name: "Jillian", party: "Groom's SSF" },
-        { name: "Claudia", party: "Groom's SSF" },
-        { name: "Kevin Lau", party: "Bride's Side" },
-        { name: "Valerie Chua", party: "Bride's Side" },
-        { name: "Nicholas Goh", party: "Bride's Side" }
+        { name: "Goh Ping Teng", party: "Table 11" },
+        { name: "Jillian Ong", party: "Table 11" },
+        { name: "Claudia Then", party: "Table 11" },
+        { name: "Ryan Napili", party: "Table 11" },
+        { name: "David Chng", party: "Table 11" },
+        { name: "Low Hui Yuan", party: "Table 11" }
       ],
       bottom: [
-        { name: "Shi Jun", party: "Groom's SSF" },
-        { name: "Darren", party: "Groom's SSF" },
-        { name: "Richie", party: "Groom's SSF" },
-        { name: "Jasmine Koh", party: "Plus Ones" },
-        { name: "Ravi Menon", party: "Plus Ones" },
-        { name: "Tara Iyer", party: "Plus Ones" }
+        { name: "Long Shi Jun", party: "Table 11" },
+        { name: "Darren Siew", party: "Table 11" },
+        { name: "Richie Chit", party: "Table 11" },
+        { name: "Michelle Booi", party: "Table 11" },
+        { name: "Patricia Bianca Asis", party: "Table 11" },
+        { name: "Su Shan", party: "Table 11" }
       ]
     }
   ]
 };
 
-/* ============================================================
-   CUTE CONTENT (easter eggs) — all editable text lives here.
-   ------------------------------------------------------------
-   - facts:      random one-liners shown on the landing page.
-   ============================================================ */
-
 window.WEDDING_CONTENT = {
+  /* ============================================================
+     ALL EDITABLE WORDING LIVES IN THIS FILE.
+     Change anything below and refresh — no other file to touch.
+
+     ONE EXCEPTION: the link-preview tags in index.html (og:title,
+     og:description, the <title>, and the description meta). Those are
+     read by WhatsApp/Facebook/Google, which do NOT run JavaScript, so
+     they cannot be driven from here. If you change "names", "date" or
+     "venue" below, update those four lines in index.html to match.
+     ============================================================ */
+
+  // ---- The details of this wedding ----
+  details: {
+    names: "Junyu & May",
+    date: "26 September 2026",
+    venue: "The Secret Haven",
+    welcome: "You made it! Let's find your seat.",
+    searchPlaceholder: "Start typing your name…",
+    factsLabel: "Did you know?",
+    // Shown on every seat card, just under the room map.
+    seatedBy: "12.20pm"
+  },
+
+  // ---- Wording used around the app ----
+  labels: {
+    noMatch: "Can't find your name? Check the spelling, or please ask one of our ushers.",
+    tableBadge: "You're at",
+    seatBy: "Please be seated by",       // the time itself is details.seatedBy
+    seeSeat: "See your exact seat",
+    swipeHint: "Swipe to see the whole table →",
+    otherGuests: "Other guests at your table",
+    gameKicker: "While you wait…",
+    gameTitle: "Play “Who's more likely to…”",
+    gameNext: "Next",
+    gameResults: "See results",
+    gameAgain: "Play again"
+  },
+
   // A fact is either a plain string (shared "we" fact, no signature) or
   // { text, by } to sign it with "— May" / "— Junyu".
   // Order is interleaved so signatures alternate — a signed fact is always
